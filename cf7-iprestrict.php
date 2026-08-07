@@ -1,11 +1,10 @@
 <?php
 
 /**
- * Plugin Name: CF7 IP Restrict - CloudFuze
+ * Plugin Name: CF7 IP Restrict
  * Description: Captures IP addresses on Contact Form 7 submission and restricts them. Now with client-side alerts!
  * Version: 2.1.0
- * Author: CloudFuze
- * Author URI: CloudFuze
+ * Author: Ashu Tiwary
  */
 
 if (!defined('ABSPATH')) exit;

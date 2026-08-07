@@ -3,7 +3,7 @@
 A WordPress plugin that throttles and blocks [Contact Form 7](https://wordpress.org/plugins/contact-form-7/) submissions by IP address and by keyword, with a modal shown to the visitor instead of an inline error.
 
 - **Version:** 2.1.0
-- **Author:** CloudFuze
+- **Author:** Ashu Tiwary
 - **Requires:** WordPress, Contact Form 7 (active)
 
 ## What it does
@@ -20,7 +20,7 @@ Logged-in users are exempt from all three — none of the front-end hooks are re
 
 1. Copy the `cf7-iprestrict` folder into `wp-content/plugins/`.
 2. Make sure Contact Form 7 is installed and **active** — activation is blocked otherwise.
-3. Activate **CF7 IP Restrict - CloudFuze** from the Plugins screen.
+3. Activate **CF7 IP Restrict** from the Plugins screen.
 
 ## Settings
 
