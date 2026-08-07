@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Logs / dumps
+*.log
+error_log
+debug.log
+
+# Dependencies / build (none today, cheap insurance)
+node_modules/
+vendor/
