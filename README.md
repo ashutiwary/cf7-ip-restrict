@@ -29,7 +29,7 @@ Logged-in users are exempt from all three by default — none of the front-end h
 - **Repeat Submissions** — on by default. Off, visitors can submit as often as they like with no prompt; IP and keyword blocking are unaffected. On the right of the same row sits the window: a number plus **Seconds** or **Minutes**, for how long after a submission the prompt keeps appearing. **0** keeps it until the browser is closed, and values are capped at 30 days. The window controls are hidden while the toggle is off.
 - **Logged-in Users** — off by default. On, every rule below also applies to logged-in users, including administrators. Leave it off while you are testing forms from your own account.
 - **Blocked IP Addresses** — one per line or comma-separated. Entries that are not valid IPs are dropped on save and named in an admin notice.
-- **Blocked Keywords** — one per line or comma-separated. Matched as whole words, so `spam` does not flag `spammer`.
+- **Blocked Keywords** — one per line or comma-separated. Matched as whole words, so `spam` does not flag `spammer`. Keywords that begin or end with punctuation match on that side without a word boundary, so `.ru`, `$$$`, `bit.ly` and `c++` all work as written.
 
 ### Behind a proxy or CDN
 
@@ -89,7 +89,7 @@ Because the state lives in a cookie rather than a server transient, page caching
 
 - The repeat-submission prompt no longer works by rejecting the form. It is now a pre-submit dialog driven by a cookie, so CF7's red inline error no longer appears next to the modal. The modal's markup, wording, and styling are unchanged.
 - The prompt is site-wide: a submission on any page arms it for every form on every page.
-- Keyword matching is whole-word instead of substring, so `ass` no longer flags `Cassandra` and `sex` no longer flags `Sussex`.
+- Keyword matching is whole-word instead of substring, so `ass` no longer flags `Cassandra` and `sex` no longer flags `Sussex`. Word boundaries are applied only where the keyword edge is a word character, so punctuated keywords such as `.ru`, `$$$` and `c++` still match.
 - IP and keyword lists accept newline-separated input as well as commas.
 - Invalid IP entries are reported in an admin notice instead of disappearing silently.
 

@@ -72,10 +72,15 @@ class CF7_IP_Restrict_Public
             return $result;
         }
 
-        // Whole-word keyword match, so "ass" does not flag "Cassandra".
+        // Whole-word keyword match, so "ass" does not flag "Cassandra". A word
+        // boundary is only added where the keyword edge is a word character —
+        // "\b" next to punctuation never matches, which would silently break
+        // keywords like "c++", "$$$" or ".ru".
         $posted_data = $submission->get_posted_data();
         foreach (CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_keywords')) as $keyword) {
-            $pattern = '/\b' . preg_quote($keyword, '/') . '\b/iu';
+            $open = preg_match('/^\w/', $keyword) ? '\b' : '';
+            $close = preg_match('/\w$/', $keyword) ? '\b' : '';
+            $pattern = '/' . $open . preg_quote($keyword, '/') . $close . '/iu';
             foreach ($posted_data as $form_value) {
                 if (is_string($form_value) && preg_match($pattern, $form_value)) {
                     return $this->block($result, $tags, "Your submission contains inapropriate words");
