@@ -1,8 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
   var COOKIE = "cf7_already_submitted";
-  // null = session cookie, so the prompt resets when the browser closes.
-  // Set a number of seconds to expire it sooner (300 for five minutes).
-  var MAX_AGE_SECONDS = null;
+  var settings = window.cf7IpRestrict || {};
+  var REPEAT_ENABLED = String(settings.repeatEnabled) === "1";
+  // 0 means a session cookie, so the prompt resets when the browser closes.
+  var MAX_AGE_SECONDS = parseInt(settings.repeatMaxAge, 10) || 0;
 
   var REPEAT_TEXT = "You Already Submitted Form. Do you want to Submit Again?";
   var BLOCK_MESSAGES = {
@@ -58,24 +59,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Capture phase on the document runs before CF7's own submit handler, so the
   // submission is stopped before it is sent. Nothing is posted, no error exists.
-  document.addEventListener(
-    "submit",
-    function (event) {
-      var form = event.target;
-      if (!form.classList || !form.classList.contains("wpcf7-form")) {
-        return;
-      }
-      if (!hasSubmitted()) {
-        return;
-      }
+  if (REPEAT_ENABLED) {
+    document.addEventListener(
+      "submit",
+      function (event) {
+        var form = event.target;
+        if (!form.classList || !form.classList.contains("wpcf7-form")) {
+          return;
+        }
+        if (!hasSubmitted()) {
+          return;
+        }
 
-      event.preventDefault();
-      event.stopPropagation();
-      pendingForm = form;
-      openModal(REPEAT_TEXT, true);
-    },
-    true
-  );
+        event.preventDefault();
+        event.stopPropagation();
+        pendingForm = form;
+        openModal(REPEAT_TEXT, true);
+      },
+      true
+    );
+
+    // A completed submission arms the prompt for the next one, on any page.
+    document.addEventListener("wpcf7mailsent", markSubmitted);
+  }
 
   // Submit Again: hand the same form back to CF7 to submit normally.
   submitAgainButton.addEventListener("click", function () {
@@ -92,9 +98,6 @@ document.addEventListener("DOMContentLoaded", function () {
       form.submit();
     }
   });
-
-  // A completed submission arms the prompt for the next one, on any page.
-  document.addEventListener("wpcf7mailsent", markSubmitted);
 
   // Blocklist and keyword rejections still come back from the server.
   document.addEventListener("wpcf7invalid", function (event) {

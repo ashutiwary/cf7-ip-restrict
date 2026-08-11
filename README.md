@@ -10,7 +10,7 @@ A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/con
 
 | Rule | Behaviour | Where it runs |
 | --- | --- | --- |
-| **Repeat submission** | Once a visitor has submitted any form, the next submit attempt on **any page** opens a modal: *"You Already Submitted Form. Do you want to Submit Again?"* — **Submit Again** sends it, **Close** cancels and leaves the typed input alone. | Browser only |
+| **Repeat submission** | Once a visitor has submitted any form, the next submit attempt on **any page** opens a modal: *"You Already Submitted Form. Do you want to Submit Again?"* — **Submit Again** sends it, **Close** cancels and leaves the typed input alone. Can be switched off, and the window is configurable. | Browser only |
 | **Permanent block** | IPs listed in settings are rejected outright. The modal appears with the *Submit Again* button hidden. | Server |
 | **Keyword block** | Any submission whose field values contain a blocked keyword (whole word, case-insensitive) is rejected, no retry offered. | Server |
 
@@ -26,6 +26,7 @@ Logged-in users are exempt from all three by default — none of the front-end h
 
 **CF7 IP Restrict** in the admin sidebar, or the *Settings* link on the Plugins row.
 
+- **Repeat Submissions** — on by default. Off, visitors can submit as often as they like with no prompt; IP and keyword blocking are unaffected. On the right of the same row sits the window: a number plus **Seconds** or **Minutes**, for how long after a submission the prompt keeps appearing. **0** keeps it until the browser is closed, and values are capped at 30 days. The window controls are hidden while the toggle is off.
 - **Logged-in Users** — off by default. On, every rule below also applies to logged-in users, including administrators. Leave it off while you are testing forms from your own account.
 - **Blocked IP Addresses** — one per line or comma-separated. Entries that are not valid IPs are dropped on save and named in an admin notice.
 - **Blocked Keywords** — one per line or comma-separated. Matched as whole words, so `spam` does not flag `spammer`.
@@ -42,11 +43,9 @@ define('CF7_IP_RESTRICT_TRUST_PROXY', true);
 
 ### Repeat-submission window
 
-The prompt is driven by a `cf7_already_submitted` session cookie, so it resets when the browser closes. To expire it sooner, set the constant at the top of `public/public-script.js`:
+The prompt is driven by a `cf7_already_submitted` cookie whose lifetime comes from the **Repeat Window** setting. With the default of `0` it is a session cookie, so the prompt resets when the browser closes. The amount and unit are passed to the front end via `wp_localize_script` as `cf7IpRestrict`.
 
-```js
-var MAX_AGE_SECONDS = 300;   // five minutes
-```
+Because these are site settings rather than per-visitor state, a page cache holding them briefly is harmless — unlike the visitor's own "already submitted" flag, which is why that lives in a cookie instead.
 
 ## How it works
 
@@ -82,6 +81,8 @@ Because the state lives in a cookie rather than a server transient, page caching
 
 **Added**
 
+- **Repeat Submissions** toggle to turn the repeat-submission prompt on or off from the admin.
+- **Repeat Window** controls — an amount plus a Seconds/Minutes unit for how long the prompt lasts, replacing the hardcoded value in the JavaScript. `0` keeps it until the browser closes; values are capped at 30 days. They sit on the right of the toggle's own row and hide when the toggle is off.
 - **Logged-in Users** toggle on the settings page. Previously logged-in users were always exempt with no way to change it; the exemption is now opt-out.
 
 **Changed**

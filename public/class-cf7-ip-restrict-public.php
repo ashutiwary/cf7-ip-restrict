@@ -7,6 +7,19 @@ class CF7_IP_Restrict_Public
         // Enqueue front-end scripts and styles.
         wp_enqueue_style('cf7-ip-restrict-public-style', plugin_dir_url(__FILE__) . 'public-style.css', array(), '2.2.0', 'all');
         wp_enqueue_script('cf7-ip-restrict-public-script', plugin_dir_url(__FILE__) . 'public-script.js', array(), '2.2.0', true);
+        wp_localize_script('cf7-ip-restrict-public-script', 'cf7IpRestrict', array(
+            'repeatEnabled' => get_option('cf7_ip_restrict_repeat_enabled', '1') ? 1 : 0,
+            'repeatMaxAge'  => $this->repeat_max_age(),
+        ));
+    }
+
+    // Cookie lifetime in seconds. 0 means it lasts until the browser is closed.
+    private function repeat_max_age()
+    {
+        $amount = absint(get_option('cf7_ip_restrict_repeat_duration', 0));
+        $seconds = get_option('cf7_ip_restrict_repeat_unit', 'minutes') === 'seconds' ? $amount : $amount * MINUTE_IN_SECONDS;
+
+        return min($seconds, 30 * DAY_IN_SECONDS);
     }
 
     // Proxy headers are only trusted when the site opts in with

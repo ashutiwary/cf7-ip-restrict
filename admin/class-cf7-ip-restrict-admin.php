@@ -30,22 +30,57 @@ class CF7_IP_Restrict_Admin
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_ips', array('sanitize_callback' => array($this, 'sanitize_ips')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_keywords', array('sanitize_callback' => array($this, 'sanitize_keywords')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_apply_to_logged_in', array('sanitize_callback' => array($this, 'sanitize_toggle')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => 'absint'));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_unit', array('sanitize_callback' => array($this, 'sanitize_unit')));
 
         add_settings_section('cf7_ip_restrict_main', 'Main Settings', null, 'cf7-ip-restrict-settings');
+        add_settings_field('cf7_ip_restrict_field_repeat', 'Repeat Submissions', array($this, 'repeat_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
         add_settings_field('cf7_ip_restrict_field_logged_in', 'Logged-in Users', array($this, 'apply_to_logged_in_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
         add_settings_field('cf7_ip_restrict_field_ips', 'Blocked IP Addresses', array($this, 'blocked_ips_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
         add_settings_field('cf7_ip_restrict_field_keywords', 'Blocked Keywords', array($this, 'blocked_keywords_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
     }
 
+    // Renders a checkbox styled as an on/off switch
+    private function switch_field($option, $label, $default = '')
+    {
+        echo '<label class="cf7-ip-restrict-switch">';
+        echo '<input type="checkbox" name="' . esc_attr($option) . '" value="1" ' . checked(get_option($option, $default), '1', false) . '>';
+        echo '<span class="cf7-ip-restrict-slider"></span>';
+        echo '<span class="cf7-ip-restrict-switch-text">' . esc_html($label) . '</span>';
+        echo '</label>';
+    }
+
+    // Switch on the left, how-long controls on the right of the same row.
+    // The controls are rendered hidden when the switch is off so there is no
+    // flash of them before the inline script runs.
+    public function repeat_field_callback()
+    {
+        $hidden = get_option('cf7_ip_restrict_repeat_enabled', '1') ? '' : ' hidden';
+        $unit = get_option('cf7_ip_restrict_repeat_unit', 'minutes');
+?>
+        <div class="cf7-ip-restrict-row">
+            <?php $this->switch_field('cf7_ip_restrict_repeat_enabled', 'Ask visitors to confirm before they submit a form again', '1'); ?>
+            <span class="cf7-ip-restrict-window cf7-ip-restrict-when-on"<?php echo $hidden; ?>>
+                <input type="number" name="cf7_ip_restrict_repeat_duration" value="<?php echo esc_attr(absint(get_option('cf7_ip_restrict_repeat_duration', 0))); ?>" min="0" step="1" aria-label="How long the prompt lasts">
+                <select name="cf7_ip_restrict_repeat_unit" aria-label="Unit">
+                    <?php foreach (array('seconds' => 'Seconds', 'minutes' => 'Minutes') as $value => $text) : ?>
+                        <option value="<?php echo esc_attr($value); ?>" <?php selected($unit, $value); ?>><?php echo esc_html($text); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </span>
+        </div>
+        <p class="description">
+            On by default. Off, visitors can submit as often as they like with no prompt.
+            <span class="cf7-ip-restrict-when-on"<?php echo $hidden; ?>>Use <strong>0</strong> to keep the prompt until the browser is closed. Capped at 30 days.</span>
+        </p>
+<?php
+    }
+
     // Renders the on/off switch for applying the rules to logged-in users
     public function apply_to_logged_in_field_callback()
     {
-        $enabled = get_option('cf7_ip_restrict_apply_to_logged_in');
-        echo '<label class="cf7-ip-restrict-switch">';
-        echo '<input type="checkbox" name="cf7_ip_restrict_apply_to_logged_in" value="1" ' . checked($enabled, '1', false) . '>';
-        echo '<span class="cf7-ip-restrict-slider"></span>';
-        echo '<span class="cf7-ip-restrict-switch-text">Apply blocking and the repeat-submission prompt to logged-in users</span>';
-        echo '</label>';
+        $this->switch_field('cf7_ip_restrict_apply_to_logged_in', 'Apply blocking and the repeat-submission prompt to logged-in users');
         echo '<p class="description">Off by default, so administrators can keep testing forms without being blocked.</p>';
     }
 
@@ -93,6 +128,63 @@ class CF7_IP_Restrict_Admin
             .cf7-ip-restrict-switch input:focus-visible + .cf7-ip-restrict-slider {
                 box-shadow: 0 0 0 2px #2271b1;
             }
+
+            /* Switch left, how-long controls right, on one line */
+            .cf7-ip-restrict-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 24px;
+                max-width: 720px;
+            }
+
+            /* Amount and unit joined into a single pill */
+            .cf7-ip-restrict-window {
+                display: inline-flex;
+                align-items: stretch;
+                flex: 0 0 auto;
+            }
+            .cf7-ip-restrict-window[hidden],
+            .description .cf7-ip-restrict-when-on[hidden] {
+                display: none;
+            }
+            .cf7-ip-restrict-window input,
+            .cf7-ip-restrict-window select {
+                height: 36px;
+                margin: 0;
+                border: 1px solid #8c8f94;
+                background: #fff;
+                color: #2c3338;
+                font-size: 14px;
+                line-height: 1;
+                box-shadow: none;
+                transition: border-color 0.15s, box-shadow 0.15s;
+            }
+            .cf7-ip-restrict-window input {
+                width: 76px;
+                padding: 0 10px;
+                text-align: center;
+                border-radius: 6px 0 0 6px;
+                border-right: 0;
+            }
+            .cf7-ip-restrict-window select {
+                min-width: 108px;
+                padding: 0 30px 0 12px;
+                border-radius: 0 6px 6px 0;
+                background-color: #f6f7f7;
+            }
+            .cf7-ip-restrict-window input:hover,
+            .cf7-ip-restrict-window select:hover {
+                border-color: #646970;
+            }
+            .cf7-ip-restrict-window input:focus,
+            .cf7-ip-restrict-window select:focus {
+                position: relative;
+                z-index: 1;
+                border-color: #2271b1;
+                box-shadow: 0 0 0 1px #2271b1;
+                outline: 2px solid transparent;
+            }
         </style>
         <div class="wrap">
             <h2>CF7 IP Restrict Settings</h2>
@@ -105,6 +197,19 @@ class CF7_IP_Restrict_Admin
                 ?>
             </form>
         </div>
+        <script>
+            (function () {
+                var toggle = document.querySelector('input[name="cf7_ip_restrict_repeat_enabled"]');
+                if (!toggle) {
+                    return;
+                }
+                toggle.addEventListener('change', function () {
+                    document.querySelectorAll('.cf7-ip-restrict-when-on').forEach(function (el) {
+                        el.hidden = !toggle.checked;
+                    });
+                });
+            })();
+        </script>
     <?php
     }
 
@@ -153,6 +258,11 @@ class CF7_IP_Restrict_Admin
     public function sanitize_toggle($input)
     {
         return $input ? '1' : '';
+    }
+
+    public function sanitize_unit($input)
+    {
+        return $input === 'seconds' ? 'seconds' : 'minutes';
     }
 
     // Normalises the keyword list so a stray comma cannot produce an empty keyword.
