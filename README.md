@@ -14,7 +14,7 @@ A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/con
 | **Permanent block** | IPs listed in settings are rejected outright. The modal appears with the *Submit Again* button hidden. | Server |
 | **Keyword block** | Any submission whose field values contain a blocked keyword (whole word, case-insensitive) is rejected, no retry offered. | Server |
 
-Logged-in users are exempt from all three — none of the front-end hooks are registered for them, so test in a private window.
+Logged-in users are exempt from all three by default — none of the front-end hooks are registered for them, so test in a private window. Flip the **Logged-in Users** toggle in settings to apply the rules to them as well.
 
 ## Install
 
@@ -26,6 +26,7 @@ Logged-in users are exempt from all three — none of the front-end hooks are re
 
 **CF7 IP Restrict** in the admin sidebar, or the *Settings* link on the Plugins row.
 
+- **Logged-in Users** — off by default. On, every rule below also applies to logged-in users, including administrators. Leave it off while you are testing forms from your own account.
 - **Blocked IP Addresses** — one per line or comma-separated. Entries that are not valid IPs are dropped on save and named in an admin notice.
 - **Blocked Keywords** — one per line or comma-separated. Matched as whole words, so `spam` does not flag `spammer`.
 
@@ -73,10 +74,15 @@ Because the state lives in a cookie rather than a server transient, page caching
 - **Keywords cannot contain commas or newlines** — those are the list separators.
 - **Only string field values are scanned** for keywords. Array values from checkboxes and multi-selects are skipped.
 - **The prompt is per browser, not per person.** A new browser, a private window, or cleared cookies starts fresh.
+- **The Logged-in Users toggle has no role exceptions.** Turning it on applies the rules to every logged-in user including administrators, so a blocked IP blocks your own account too.
 
 ## Changelog
 
 ### 2.2.0
+
+**Added**
+
+- **Logged-in Users** toggle on the settings page. Previously logged-in users were always exempt with no way to change it; the exemption is now opt-out.
 
 **Changed**
 

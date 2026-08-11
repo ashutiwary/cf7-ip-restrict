@@ -29,8 +29,8 @@ class CF7_IP_Restrict
 
     public function define_public_hooks()
     {
-        // This now safely checks if the user is logged in when 'init' action is processed
-        if (is_user_logged_in()) {
+        // Logged-in users are skipped unless the admin turned the toggle on.
+        if (is_user_logged_in() && !get_option('cf7_ip_restrict_apply_to_logged_in')) {
             return;
         }
 
