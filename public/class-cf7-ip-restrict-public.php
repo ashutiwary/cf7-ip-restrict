@@ -5,12 +5,8 @@ class CF7_IP_Restrict_Public
     public function enqueue_scripts()
     {
         // Enqueue front-end scripts and styles.
-        wp_enqueue_style('cf7-ip-restrict-public-style', plugin_dir_url(__FILE__) . 'public-style.css', array(), '2.1.0', 'all');
-        wp_enqueue_script('cf7-ip-restrict-public-script', plugin_dir_url(__FILE__) . 'public-script.js', array(), '2.1.0', true);
-        // localize ajax
-        wp_localize_script('cf7-ip-restrict-public-script', 'ajax_object', array(
-            'ajax_url' => admin_url('admin-ajax.php')
-        ));
+        wp_enqueue_style('cf7-ip-restrict-public-style', plugin_dir_url(__FILE__) . 'public-style.css', array(), '2.2.0', 'all');
+        wp_enqueue_script('cf7-ip-restrict-public-script', plugin_dir_url(__FILE__) . 'public-script.js', array(), '2.2.0', true);
     }
 
     // Proxy headers are only trusted when the site opts in with
@@ -33,12 +29,6 @@ class CF7_IP_Restrict_Public
         return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
     }
 
-    // One lock per visitor for the whole site, not per form.
-    private function transient_key($ip)
-    {
-        return 'block_ip_' . $ip;
-    }
-
     // CF7 silently discards an error attached to a tag with no name, so pick
     // the first tag that actually has one.
     private function block($result, $tags, $message)
@@ -52,25 +42,16 @@ class CF7_IP_Restrict_Public
         return $result;
     }
 
-    public function capture_user_ip_on_submission($contact_form)
-    {
-        $user_ip = $this->client_ip();
-        if ($user_ip) {
-            set_transient($this->transient_key($user_ip), true, 5 * MINUTE_IN_SECONDS);
-        }
-    }
-
     public function check_ip_before_submission($result, $tags)
     {
         $user_ip = $this->client_ip();
-        if (!$user_ip) {
-            return $result;
-        }
 
         // Check against permanently blocked IPs
-        $blocked_ips = CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_ips'));
-        if (in_array($user_ip, $blocked_ips, true)) {
-            return $this->block($result, $tags, "Submission is Blocked");
+        if ($user_ip) {
+            $blocked_ips = CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_ips'));
+            if (in_array($user_ip, $blocked_ips, true)) {
+                return $this->block($result, $tags, "Submission is Blocked");
+            }
         }
 
         $submission = WPCF7_Submission::get_instance();
@@ -89,24 +70,7 @@ class CF7_IP_Restrict_Public
             }
         }
 
-        // Check if the visitor already submitted a form anywhere on the site
-        if (get_transient($this->transient_key($user_ip))) {
-            return $this->block($result, $tags, "Please wait for 5 Minute");
-        }
-
         return $result;
-    }
-
-    public function unblock_user_submit_again()
-    {
-        $user_ip = $this->client_ip();
-
-        if ($user_ip) {
-            delete_transient($this->transient_key($user_ip));
-        }
-
-        // A block that already expired on its own still leaves the user unblocked.
-        wp_send_json_success(array('message' => 'IP unblocked successfully'));
     }
 
     public function add_custom_error_modal_html()

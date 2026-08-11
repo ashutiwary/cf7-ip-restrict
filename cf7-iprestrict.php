@@ -2,8 +2,8 @@
 
 /**
  * Plugin Name: CF7 IP Restrict
- * Description: Captures IP addresses on Contact Form 7 submission and restricts them. Now with client-side alerts!
- * Version: 2.1.0
+ * Description: Warns Contact Form 7 visitors before a repeat submission, and restricts IP addresses and keywords.
+ * Version: 2.2.0
  * Author: Ashu Tiwary
  */
 

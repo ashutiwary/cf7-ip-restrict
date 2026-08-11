@@ -20,7 +20,16 @@
   width: 50%; /* Could be more or less, depending on screen size */
 }
 
-@media only screen and (max-width: 900px) {
+@media only screen and (max-width: 600px) {
+  .cf-modal-custom {
+    top: 120px !important;
+  }
+  .cf-modal-content-custom {
+    width: 80% !important;
+  }
+}
+
+@media only screen and (min-width: 601px) and (max-width: 900px) {
   .cf-modal-custom {
     top: 120px !important;
   }
@@ -30,25 +39,32 @@
 }
 
 /*The button  */
-.cf-btn-primary,
+.cf-btn-primary {
+  padding: 10px 20px;
+  border-radius: 4px;
+  background-color: #0129ac;
+  color: #fff;
+  font-weight: 600;
+  border: 0px;
+  cursor: pointer;
+  border: 1px solid #0129ac;
+  margin-bottom: 10px;
+  margin-left: 10px;
+  margin-right: 10px;
+  transform: uppercase;
+  transition: all 0.2s;
+}
 .cf-btn-secondary {
   padding: 10px 20px;
   border-radius: 4px;
   border: 1px solid #0129ac;
+  background-color: transparent;
+  color: #0129ac;
   font-weight: 600;
   cursor: pointer;
   margin-bottom: 10px;
+  transform: uppercase;
   transition: all 0.2s;
-}
-.cf-btn-primary {
-  background-color: #0129ac;
-  color: #fff;
-  margin-left: 10px;
-  margin-right: 10px;
-}
-.cf-btn-secondary {
-  background-color: transparent;
-  color: #0129ac;
 }
 .cf-btn-primary:hover,
 .cf-btn-secondary:hover {

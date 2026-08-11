@@ -37,8 +37,6 @@ class CF7_IP_Restrict
         $plugin_public = new CF7_IP_Restrict_Public();
         add_action('wp_footer', array($plugin_public, 'add_custom_error_modal_html'));
         add_action('wp_enqueue_scripts', array($plugin_public, 'enqueue_scripts'));
-        add_action('wpcf7_before_send_mail', array($plugin_public, 'capture_user_ip_on_submission'));
         add_filter('wpcf7_validate', array($plugin_public, 'check_ip_before_submission'), 20, 2);
-        add_action('wp_ajax_nopriv_unblock_ip', array($plugin_public, 'unblock_user_submit_again'));
     }
 }

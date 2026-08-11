@@ -1,20 +1,20 @@
 # CF7 IP Restrict
 
-A WordPress plugin that throttles and blocks [Contact Form 7](https://wordpress.org/plugins/contact-form-7/) submissions by IP address and by keyword, with a modal shown to the visitor instead of an inline error.
+A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/contact-form-7/) visitors before a repeat submission, and blocks submissions by IP address and by keyword. All three surface in a modal instead of CF7's inline error text.
 
-- **Version:** 2.1.0
+- **Version:** 2.2.0
 - **Author:** Ashu Tiwary
 - **Requires:** WordPress, Contact Form 7 (active)
 
 ## What it does
 
-| Rule | Behaviour |
-| --- | --- |
-| **Rate limit** | After a successful submission the visitor's IP is blocked for 5 minutes. They get a "Submit Again" option in the modal. |
-| **Permanent block** | IPs listed in settings are blocked outright, with no way to retry. |
-| **Keyword block** | Any submission whose field values contain a blocked keyword (case-insensitive substring match) is rejected. |
+| Rule | Behaviour | Where it runs |
+| --- | --- | --- |
+| **Repeat submission** | Once a visitor has submitted any form, the next submit attempt on **any page** opens a modal: *"You Already Submitted Form. Do you want to Submit Again?"* — **Submit Again** sends it, **Close** cancels and leaves the typed input alone. | Browser only |
+| **Permanent block** | IPs listed in settings are rejected outright. The modal appears with the *Submit Again* button hidden. | Server |
+| **Keyword block** | Any submission whose field values contain a blocked keyword (whole word, case-insensitive) is rejected, no retry offered. | Server |
 
-Logged-in users are exempt from all three — none of the front-end hooks are registered for them.
+Logged-in users are exempt from all three — none of the front-end hooks are registered for them, so test in a private window.
 
 ## Install
 
@@ -26,29 +26,84 @@ Logged-in users are exempt from all three — none of the front-end hooks are re
 
 **CF7 IP Restrict** in the admin sidebar, or the *Settings* link on the Plugins row.
 
-- **Blocked IP Addresses** — comma-separated (`192.168.1.1, 10.0.0.2`). Invalid entries are silently dropped on save.
-- **Blocked Keywords** — comma-separated (`spam, unauthorized`).
+- **Blocked IP Addresses** — one per line or comma-separated. Entries that are not valid IPs are dropped on save and named in an admin notice.
+- **Blocked Keywords** — one per line or comma-separated. Matched as whole words, so `spam` does not flag `spammer`.
+
+### Behind a proxy or CDN
+
+`REMOTE_ADDR` is the proxy's IP behind Cloudflare, a load balancer, or any reverse proxy, which would make every visitor share one identity. To read the real client IP, opt in explicitly in `wp-config.php`:
+
+```php
+define('CF7_IP_RESTRICT_TRUST_PROXY', true);
+```
+
+`CF-Connecting-IP` then `X-Forwarded-For` are used, first hop only. This is **off by default on purpose** — trusting those headers unconditionally would let any visitor spoof one and walk past the blocklist.
+
+### Repeat-submission window
+
+The prompt is driven by a `cf7_already_submitted` session cookie, so it resets when the browser closes. To expire it sooner, set the constant at the top of `public/public-script.js`:
+
+```js
+var MAX_AGE_SECONDS = 300;   // five minutes
+```
 
 ## How it works
 
 | File | Role |
 | --- | --- |
 | `cf7-iprestrict.php` | Plugin header, CF7 dependency check, bootstrap |
-| `includes/class-cf7-ip-restrict.php` | Hook registration |
-| `admin/class-cf7-ip-restrict-admin.php` | Settings page (Settings API) |
-| `public/class-cf7-ip-restrict-public.php` | Validation, transients, AJAX unblock, modal markup |
-| `public/public-script.js` | Listens for `wpcf7invalid`, shows the modal |
+| `includes/class-cf7-ip-restrict.php` | Hook registration, shared `to_list()` option parser |
+| `admin/class-cf7-ip-restrict-admin.php` | Settings page (Settings API), input sanitising |
+| `public/class-cf7-ip-restrict-public.php` | IP/keyword validation, modal markup |
+| `public/public-script.js` | Repeat-submission prompt, modal behaviour |
 | `public/public-style.css` | Modal styling |
+| `index.php` | Empty-index guard against directory listing |
 
-The 5-minute block is a transient keyed `block_ip_<ip>`. Validation runs on the `wpcf7_validate` filter; the block is set on `wpcf7_before_send_mail`.
+**Repeat submission** never reaches the server. A capture-phase `submit` listener on `document` runs before CF7's own handler, so when the cookie is present the submission is stopped with `preventDefault()` before anything is posted — no request, no validation error, nothing to suppress. *Submit Again* clears the cookie and calls `wpcf7.submit(form)` on the same form. The cookie is set on CF7's `wpcf7mailsent` event, which re-arms the prompt for next time.
+
+Because the state lives in a cookie rather than a server transient, page caching can't serve a stale answer, and there's no round trip before the modal opens. The document-level listener also covers forms injected later by AJAX.
+
+**IP and keyword blocking** still run server-side on the `wpcf7_validate` filter and use `$result->invalidate()`. The error is attached to the first form tag that actually has a name, because CF7 silently discards errors attached to an unnamed tag such as `[submit]`.
 
 ## Known limitations
 
-- **The `unblock_ip` AJAX endpoint has no nonce check.** Anything that can POST to `admin-ajax.php` can clear its own 5-minute block, so the rate limit stops honest repeat submitters, not bots.
-- **Blocking is by `REMOTE_ADDR` only.** Behind Cloudflare or any reverse proxy this is the proxy's IP, not the visitor's — every visitor shares one block.
-- **PHP and JS match on exact English error strings.** Change the wording in one and the modal stops appearing; the plugin is not translatable as written.
-- **IP and keyword lists must be comma-separated.** Newline-separated input is discarded on save.
-- **Keywords match as substrings**, so `spam` also blocks `spammer` and `unspammed`.
+- **There is no server-side throttle.** The repeat-submission prompt is a browser-side courtesy; anything ignoring cookies and JavaScript submits freely. This is a deliberate consequence of the feature — the prompt has to be dismissible, so it cannot also be enforcement. Use a CAPTCHA if spam is the actual problem.
+- **PHP and JS match on exact English strings** for the two server-side blocks. Change the wording in one place and the modal stops appearing; the plugin is not translatable as written. The misspelling in `"Your submission contains inapropriate words"` is load-bearing for the same reason.
+- **IPv6 addresses must be written exactly as they arrive.** `::1` in the blocklist will not match a request arriving as `0:0:0:0:0:0:0:1`.
+- **Keywords cannot contain commas or newlines** — those are the list separators.
+- **Only string field values are scanned** for keywords. Array values from checkboxes and multi-selects are skipped.
+- **The prompt is per browser, not per person.** A new browser, a private window, or cleared cookies starts fresh.
+
+## Changelog
+
+### 2.2.0
+
+**Changed**
+
+- The repeat-submission prompt no longer works by rejecting the form. It is now a pre-submit dialog driven by a cookie, so CF7's red inline error no longer appears next to the modal. The modal's markup, wording, and styling are unchanged.
+- The prompt is site-wide: a submission on any page arms it for every form on every page.
+- Keyword matching is whole-word instead of substring, so `ass` no longer flags `Cassandra` and `sex` no longer flags `Sussex`.
+- IP and keyword lists accept newline-separated input as well as commas.
+- Invalid IP entries are reported in an admin notice instead of disappearing silently.
+
+**Fixed**
+
+- Saving the settings page wiped the IP blocklist when entries were newline-separated. `sanitize_text_field()` collapsed newlines to spaces, so no entry validated as an IP and the option saved empty.
+- A trailing or doubled comma in Blocked Keywords produced an empty keyword, and `stripos($value, "")` returns `0` — so **every** submission on the site was rejected as inappropriate.
+- Blocks silently did nothing when a form's first tag had no name; CF7 discards errors attached to such a tag, so the submission went through and the mail was sent.
+- Every visitor shared one identity behind a proxy. Added opt-in `CF7_IP_RESTRICT_TRUST_PROXY` support.
+- *Submit Again* did nothing when the old 5-minute block had already expired on its own — `delete_transient()` returned `false` and the JS only logged to the console.
+- On a page with more than one form, *Submit Again* resubmitted the first form in the document rather than the one the visitor was using.
+- "Settings saved successfully" was printed on every admin screen carrying `?settings-updated`, including other plugins' settings pages.
+
+**Removed**
+
+- The 5-minute `block_ip_<ip>` transient, the `unblock_ip` AJAX endpoint, and the `wpcf7_before_send_mail` hook. The endpoint had no nonce, so any client could clear its own block with a single POST — it was never real protection.
+- A duplicate `admin_menu` registration, a dead `wp_die()` after `wp_send_json_*`, an unused `WPCF7_Submission` guard, the unnecessary jQuery dependency, and the now-unused `wp_localize_script` call.
+
+### 2.1.0
+
+Initial version: 5-minute per-IP rate limit via transient, permanent IP blocklist, substring keyword blocking, modal driven by the `wpcf7invalid` event.
 
 ## License
 
