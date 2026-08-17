@@ -2,6 +2,10 @@
 
 class CF7_IP_Restrict_Public
 {
+    // Set when this plugin rejects a submission, read back when the response
+    // is built so CF7's own field-level output can be dropped.
+    private $block_reason = '';
+
     public function enqueue_scripts()
     {
         // Enqueue front-end scripts and styles.
@@ -42,10 +46,15 @@ class CF7_IP_Restrict_Public
         return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
     }
 
+    // Rejects the submission. The field-level message is what stops the mail;
+    // filter_feedback_response() then strips it from the response so the
+    // visitor only sees the modal, not red text under an unrelated field.
     // CF7 silently discards an error attached to a tag with no name, so pick
     // the first tag that actually has one.
-    private function block($result, $tags, $message)
+    private function block($result, $tags, $reason, $message)
     {
+        $this->block_reason = $reason;
+
         foreach ($tags as $tag) {
             if (!empty($tag->name)) {
                 $result->invalidate($tag, $message);
@@ -53,6 +62,21 @@ class CF7_IP_Restrict_Public
             }
         }
         return $result;
+    }
+
+    // Keeps the rejection but removes CF7's field-level errors and banner text,
+    // and hands the reason to the front end so the modal knows what to say.
+    public function filter_feedback_response($response, $result)
+    {
+        if (!$this->block_reason) {
+            return $response;
+        }
+
+        $response['cf7_ip_restrict'] = $this->block_reason;
+        $response['invalid_fields'] = array();
+        $response['message'] = '';
+
+        return $response;
     }
 
     public function check_ip_before_submission($result, $tags)
@@ -63,7 +87,7 @@ class CF7_IP_Restrict_Public
         if ($user_ip) {
             $blocked_ips = CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_ips'));
             if (in_array($user_ip, $blocked_ips, true)) {
-                return $this->block($result, $tags, "Submission is Blocked");
+                return $this->block($result, $tags, 'ip', "Submission is Blocked");
             }
         }
 
@@ -72,23 +96,38 @@ class CF7_IP_Restrict_Public
             return $result;
         }
 
-        // Whole-word keyword match, so "ass" does not flag "Cassandra". A word
-        // boundary is only added where the keyword edge is a word character —
-        // "\b" next to punctuation never matches, which would silently break
-        // keywords like "c++", "$$$" or ".ru".
-        $posted_data = $submission->get_posted_data();
+        // Every field is searched, not just the message: name, email, subject,
+        // dropdowns, checkboxes, anything the visitor filled in.
+        $haystack = implode("\n", $this->posted_strings($submission->get_posted_data()));
+
+        // Substring match: "hello" blocks hello123@gmail.com, abchello@abc.com
+        // and abc@hello.com alike. stripos covers the ASCII case and cannot be
+        // defeated by malformed UTF-8; the regex adds multibyte case folding.
+        // to_list() guarantees no keyword is empty, which would match anything.
         foreach (CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_keywords')) as $keyword) {
-            $open = preg_match('/^\w/', $keyword) ? '\b' : '';
-            $close = preg_match('/\w$/', $keyword) ? '\b' : '';
-            $pattern = '/' . $open . preg_quote($keyword, '/') . $close . '/iu';
-            foreach ($posted_data as $form_value) {
-                if (is_string($form_value) && preg_match($pattern, $form_value)) {
-                    return $this->block($result, $tags, "Your submission contains inapropriate words");
-                }
+            if (stripos($haystack, $keyword) !== false
+                || preg_match('/' . preg_quote($keyword, '/') . '/iu', $haystack)) {
+                return $this->block($result, $tags, 'keyword', "Your submission contains inapropriate words");
             }
         }
 
         return $result;
+    }
+
+    // Every submitted string, flattened out of the nested arrays that
+    // checkboxes and multi-selects post. Joined on a newline by the caller,
+    // which is safe because to_list() never lets a keyword contain one.
+    private function posted_strings($posted_data)
+    {
+        $strings = array();
+
+        array_walk_recursive($posted_data, function ($value) use (&$strings) {
+            if (is_string($value)) {
+                $strings[] = $value;
+            }
+        });
+
+        return $strings;
     }
 
     public function add_custom_error_modal_html()

@@ -6,10 +6,10 @@ document.addEventListener("DOMContentLoaded", function () {
   var MAX_AGE_SECONDS = parseInt(settings.repeatMaxAge, 10) || 0;
 
   var REPEAT_TEXT = "You Already Submitted Form. Do you want to Submit Again?";
+  // Keyed by the reason the server sends back, not by its message text.
   var BLOCK_MESSAGES = {
-    "Submission is Blocked": "Your Form Submissions are Permanently Blocked.",
-    "Your submission contains inapropriate words":
-      "Your submission contains inapropriate words",
+    ip: "Your Form Submissions are Permanently Blocked.",
+    keyword: "Your submission contains inapropriate words",
   };
 
   var modal = document.getElementById("cfcustomErrorModal");
@@ -99,17 +99,17 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Blocklist and keyword rejections still come back from the server.
-  document.addEventListener("wpcf7invalid", function (event) {
-    var fields = (event.detail.apiResponse || {}).invalid_fields || [];
-    var match = Object.keys(BLOCK_MESSAGES).find(function (known) {
-      return fields.some(function (field) {
-        return field.message && field.message.indexOf(known) !== -1;
-      });
-    });
-
-    if (match) {
-      openModal(BLOCK_MESSAGES[match], false);
+  // Blocklist and keyword rejections come back with our own reason key. The
+  // server strips CF7's field errors, so the modal is the only feedback.
+  function showBlock(event) {
+    var reason = (event.detail.apiResponse || {}).cf7_ip_restrict;
+    if (reason && BLOCK_MESSAGES[reason]) {
+      openModal(BLOCK_MESSAGES[reason], false);
     }
-  });
+  }
+
+  // Both fire for a rejected submission depending on CF7 version; opening the
+  // same modal twice is harmless, missing it entirely would not be.
+  document.addEventListener("wpcf7submit", showBlock);
+  document.addEventListener("wpcf7invalid", showBlock);
 });

@@ -31,7 +31,7 @@ class CF7_IP_Restrict_Admin
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_keywords', array('sanitize_callback' => array($this, 'sanitize_keywords')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_apply_to_logged_in', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
-        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => 'absint'));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => array($this, 'sanitize_duration')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_unit', array('sanitize_callback' => array($this, 'sanitize_unit')));
 
         add_settings_section('cf7_ip_restrict_main', 'Main Settings', null, 'cf7-ip-restrict-settings');
@@ -226,7 +226,7 @@ class CF7_IP_Restrict_Admin
     {
         $keywords = get_option('cf7_ip_restrict_blocked_keywords');
         echo '<textarea name="cf7_ip_restrict_blocked_keywords" class="large-text" rows="5">' . esc_textarea($keywords) . '</textarea>';
-        echo '<p class="description">Enter keywords to block, one per line or separated by commas (e.g., spam, unauthorized). Matched as whole words, case-insensitive.</p>';
+        echo '<p class="description">Enter keywords to block, one per line or separated by commas. Case-insensitive, and matched anywhere they appear &mdash; including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
     }
 
     // Keeps only valid IPs and tells the admin which entries were dropped.
@@ -263,6 +263,32 @@ class CF7_IP_Restrict_Admin
     public function sanitize_unit($input)
     {
         return $input === 'seconds' ? 'seconds' : 'minutes';
+    }
+
+    // Stores the clamped value so the field shows the window actually in force,
+    // rather than an entry the front end would silently cut down to 30 days.
+    public function sanitize_duration($input)
+    {
+        $amount = absint($input);
+
+        // The unit is submitted alongside, so read the new one rather than the
+        // stored one, which has not been updated yet at this point.
+        $unit = isset($_POST['cf7_ip_restrict_repeat_unit'])
+            ? $this->sanitize_unit(wp_unslash($_POST['cf7_ip_restrict_repeat_unit']))
+            : get_option('cf7_ip_restrict_repeat_unit', 'minutes');
+
+        $max = $unit === 'seconds' ? 30 * DAY_IN_SECONDS : (30 * DAY_IN_SECONDS) / MINUTE_IN_SECONDS;
+
+        if ($amount > $max) {
+            add_settings_error(
+                'cf7_ip_restrict_repeat_duration',
+                'cf7_ip_restrict_duration_capped',
+                sprintf('Repeat window reduced to the 30 day maximum (%d %s).', $max, $unit)
+            );
+            $amount = (int) $max;
+        }
+
+        return $amount;
     }
 
     // Normalises the keyword list so a stray comma cannot produce an empty keyword.

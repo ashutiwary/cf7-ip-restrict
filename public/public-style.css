@@ -1,3 +1,9 @@
+/* Blocked submissions send an empty response message so only the modal speaks.
+   Without this CF7 still draws its bordered response bar, just with no text. */
+.wpcf7-response-output:empty {
+  display: none !important;
+}
+
 /* The Modal (background) */
 .cf-modal-custom {
   display: none; /* Hidden by default */

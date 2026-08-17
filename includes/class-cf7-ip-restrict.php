@@ -38,5 +38,6 @@ class CF7_IP_Restrict
         add_action('wp_footer', array($plugin_public, 'add_custom_error_modal_html'));
         add_action('wp_enqueue_scripts', array($plugin_public, 'enqueue_scripts'));
         add_filter('wpcf7_validate', array($plugin_public, 'check_ip_before_submission'), 20, 2);
+        add_filter('wpcf7_feedback_response', array($plugin_public, 'filter_feedback_response'), 10, 2);
     }
 }
