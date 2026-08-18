@@ -24,7 +24,7 @@ Logged-in users are exempt from all three by default — none of the front-end h
 
 ## Settings
 
-**CF7 IP Restrict** in the admin sidebar, or the *Settings* link on the Plugins row.
+**Contact → IP Restrict** in the admin sidebar, or the *Settings* link on the Plugins row.
 
 - **Repeat Submissions** — on by default. Off, visitors can submit as often as they like with no prompt; IP and keyword blocking are unaffected. On the right of the same row sits the window: a number plus **Seconds** or **Minutes**, for how long after a submission the prompt keeps appearing. **0** keeps it until the browser is closed, and values are capped at 30 days. The window controls are hidden while the toggle is off.
 - **Logged-in Users** — off by default. On, every rule below also applies to logged-in users, including administrators. Leave it off while you are testing forms from your own account.
@@ -100,6 +100,7 @@ The filter returns the response untouched unless this plugin was the thing that 
 
 **Changed**
 
+- The settings page moved from its own top-level admin menu to a submenu under **Contact**, alongside Contact Form 7's own screens. The page slug is unchanged, so existing links and the Plugins-row *Settings* link still work.
 - The repeat-submission prompt no longer works by rejecting the form. It is now a pre-submit dialog driven by a cookie, so CF7's red inline error no longer appears next to the modal. The modal's markup, wording, and styling are unchanged.
 - The prompt is site-wide: a submission on any page arms it for every form on every page.
 - Keyword matching is a case-insensitive substring search across every field, so a keyword joined to other characters still blocks — `hello` catches `hello123@gmail.com`, `nr.abchello@abc.com` and `abc@hello.com`.

@@ -9,19 +9,19 @@ class CF7_IP_Restrict_Admin
         add_action('admin_menu', array($this, 'add_admin_menu'));
     }
 
-    // Adds a menu item to the WordPress admin menu
+    // Adds the settings page under Contact Form 7's own menu ("wpcf7" is CF7's
+    // top-level slug). The page slug is unchanged, so the Settings link on the
+    // Plugins row still resolves.
     public function add_admin_menu()
     {
-        add_menu_page(
+        add_submenu_page(
+            'wpcf7',
             'CF7 IP Restrict Settings',
             'CF7 IP Restrict',
             'manage_options',
             'cf7-ip-restrict-settings',
-            array($this, 'display_settings_page'),
-            'dashicons-hidden',
-            30
+            array($this, 'display_settings_page')
         );
-        
     }
 
     // Registers settings, sections, and fields with the WordPress Settings API
