@@ -226,7 +226,7 @@ class CF7_IP_Restrict_Admin
     {
         $keywords = get_option('cf7_ip_restrict_blocked_keywords');
         echo '<textarea name="cf7_ip_restrict_blocked_keywords" class="large-text" rows="5">' . esc_textarea($keywords) . '</textarea>';
-        echo '<p class="description">Enter keywords to block, one per line or separated by commas. Case-insensitive, and matched anywhere they appear &mdash; including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
+        echo '<p class="description">Enter keywords to block, one per line or separated by commas. Case-insensitive, and matched anywhere they appear including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
     }
 
     // Keeps only valid IPs and tells the admin which entries were dropped.
