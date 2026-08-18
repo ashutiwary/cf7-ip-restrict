@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var REPEAT_TEXT = "You Already Submitted Form. Do you want to Submit Again?";
   // Keyed by the reason the server sends back, not by its message text.
   var BLOCK_MESSAGES = {
-    ip: "Your Form Submissions are Permanently Blocked.",
+    ip: "We're unable to accept your submission at this time. Please contact us directly if you need assistance.",
     keyword: "Your submission contains inapropriate words",
   };
 
