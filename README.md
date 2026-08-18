@@ -81,7 +81,7 @@ The filter returns the response untouched unless this plugin was the thing that 
 - **The modal wording lives in the JavaScript** and is not translatable as written. The server-side message strings are now internal only — the front end keys off `ip` / `keyword` — so rewording either side is safe.
 - **The IP-block modal says "Permanently Blocked"** although the block is fully reversible by editing the list. Kept as the original wording; change the string in `BLOCK_MESSAGES` in `public/public-script.js` if you would rather it read less final.
 - **A block hides other validation errors on the same submission.** If a visitor is IP-blocked and also left a required field empty, only the modal shows. They are blocked regardless, so the empty field is moot.
-- **IPv6 addresses must be written exactly as they arrive.** `::1` in the blocklist will not match a request arriving as `0:0:0:0:0:0:0:1`.
+- **A blocked IP still needs to be the address the server sees.** On a local install every request arrives from `127.0.0.1` or `::1`, so a public IP looked up externally will never match. Behind a proxy or CDN, see the opt-in constant above.
 - **Keywords cannot contain commas or newlines** — those are the list separators.
 - **Keywords match inside longer words.** This is deliberate so that `hello` catches `hello123@gmail.com`, but it also means `ass` flags `Cassandra` and `sex` flags `Sussex`. Choose keywords with that in mind — prefer longer, more specific strings.
 - **Uploaded file names are not scanned.** `get_posted_data()` does not include `$_FILES`, so a keyword in an attachment's filename does not block the submission.
@@ -112,6 +112,7 @@ The filter returns the response untouched unless this plugin was the thing that 
 - IP and keyword blocks no longer add red error text to a form field. CF7 anchors a field error to a specific input, so the message appeared under Name or Email regardless of which field actually triggered the block, inviting visitors to edit the wrong field.
 - The **Repeat Window** value is now clamped to the 30 day maximum **on save**, with an admin notice. Previously an out-of-range entry such as `999999` was stored and redisplayed verbatim while the front end quietly used 30 days, so the settings screen showed a window that was not in force.
 - The front end no longer identifies blocks by matching English message text, so rewording a message can no longer stop the modal appearing.
+- Blocklist entries are compared as canonical addresses rather than strings, so the same host written differently still matches — `2001:db8::1` now blocks a request arriving as `2001:0db8:0000:0000:0000:0000:0000:0001`, and `::ffff:203.0.113.9` and `203.0.113.9` are treated as one address.
 - Keyword scanning now covers array field values. Checkbox, radio and multi-select answers were skipped by an `is_string()` guard, so a keyword chosen from a dropdown never blocked anything.
 - Saving the settings page wiped the IP blocklist when entries were newline-separated. `sanitize_text_field()` collapsed newlines to spaces, so no entry validated as an IP and the option saved empty.
 - A trailing or doubled comma in Blocked Keywords produced an empty keyword, and `stripos($value, "")` returns `0` — so **every** submission on the site was rejected as inappropriate.

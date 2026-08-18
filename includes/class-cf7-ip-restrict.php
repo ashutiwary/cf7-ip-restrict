@@ -8,6 +8,28 @@ class CF7_IP_Restrict
         return array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', (string) $str)), 'strlen'));
     }
 
+    // The visitor's IP as this plugin sees it. Proxy headers are only trusted
+    // when the site opts in with define('CF7_IP_RESTRICT_TRUST_PROXY', true) in
+    // wp-config.php, otherwise any visitor could send a fake header and skip
+    // the blocklist. Shared so the settings page can show the same value the
+    // blocklist is compared against.
+    public static function client_ip()
+    {
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
+
+        if (defined('CF7_IP_RESTRICT_TRUST_PROXY') && CF7_IP_RESTRICT_TRUST_PROXY) {
+            foreach (array('HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR') as $header) {
+                if (!empty($_SERVER[$header])) {
+                    $parts = explode(',', $_SERVER[$header]);
+                    $ip = trim($parts[0]);
+                    break;
+                }
+            }
+        }
+
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
+    }
+
     public function run()
     {
         // Hook define_public_hooks to the init action so it executes when is_user_logged_in() is available

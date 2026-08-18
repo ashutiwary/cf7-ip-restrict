@@ -26,24 +26,23 @@ class CF7_IP_Restrict_Public
         return min($seconds, 30 * DAY_IN_SECONDS);
     }
 
-    // Proxy headers are only trusted when the site opts in with
-    // define('CF7_IP_RESTRICT_TRUST_PROXY', true) in wp-config.php, otherwise
-    // any visitor could send a fake header and skip the blocklist.
-    public function client_ip()
+    // One address can be written several ways, so compare canonical binary
+    // forms instead of strings: "::1" and "0:0:0:0:0:0:0:1" are the same host,
+    // and "::ffff:1.2.3.4" is the same host as "1.2.3.4". Returns '' for
+    // anything that is not a parseable address.
+    private function ip_key($ip)
     {
-        $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
-
-        if (defined('CF7_IP_RESTRICT_TRUST_PROXY') && CF7_IP_RESTRICT_TRUST_PROXY) {
-            foreach (array('HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR') as $header) {
-                if (!empty($_SERVER[$header])) {
-                    $parts = explode(',', $_SERVER[$header]);
-                    $ip = trim($parts[0]);
-                    break;
-                }
-            }
+        $packed = @inet_pton((string) $ip);
+        if ($packed === false) {
+            return '';
         }
 
-        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '';
+        // Unwrap IPv4-mapped IPv6 so both spellings collapse to one key.
+        if (strlen($packed) === 16 && strncmp($packed, str_repeat("\0", 10) . "\xff\xff", 12) === 0) {
+            $packed = substr($packed, 12);
+        }
+
+        return $packed;
     }
 
     // Rejects the submission. The field-level message is what stops the mail;
@@ -81,13 +80,15 @@ class CF7_IP_Restrict_Public
 
     public function check_ip_before_submission($result, $tags)
     {
-        $user_ip = $this->client_ip();
+        $user_ip = CF7_IP_Restrict::client_ip();
 
-        // Check against permanently blocked IPs
-        if ($user_ip) {
-            $blocked_ips = CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_ips'));
-            if (in_array($user_ip, $blocked_ips, true)) {
-                return $this->block($result, $tags, 'ip', "Submission is Blocked");
+        // Refuse the submission if the visitor's address is on the blocklist.
+        $visitor = $this->ip_key($user_ip);
+        if ($visitor !== '') {
+            foreach (CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_ips')) as $blocked) {
+                if ($this->ip_key($blocked) === $visitor) {
+                    return $this->block($result, $tags, 'ip', "Submission is Blocked");
+                }
             }
         }
 

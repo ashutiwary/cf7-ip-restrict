@@ -189,6 +189,11 @@ class CF7_IP_Restrict_Admin
         <div class="wrap">
             <h2>CF7 IP Restrict Settings</h2>
             <?php settings_errors(); ?>
+            <?php if (is_user_logged_in() && !get_option('cf7_ip_restrict_apply_to_logged_in')) : ?>
+                <div class="notice notice-warning inline">
+                    <p><strong>None of these rules apply to you right now.</strong> You are logged in, and <em>Logged-in Users</em> is off, so your own submissions are never blocked &mdash; not even by the IP list below. Test in a private window, or turn that toggle on.</p>
+                </div>
+            <?php endif; ?>
             <form action="options.php" method="post">
                 <?php
                 settings_fields('cf7_ip_restrict_settings');
@@ -218,7 +223,7 @@ class CF7_IP_Restrict_Admin
     {
         $ips = get_option('cf7_ip_restrict_blocked_ips');
         echo '<textarea name="cf7_ip_restrict_blocked_ips" class="large-text" rows="5">' . esc_textarea($ips) . '</textarea>';
-        echo '<p class="description">Enter IP addresses to block, one per line or separated by commas (e.g., 192.168.1.1, 10.0.0.2).</p>';
+        echo '<p class="description">Enter IP addresses to block, one per line or separated by commas (e.g., 192.168.1.1, 10.0.0.2). Anyone submitting a form from a listed address is refused.</p>';
     }
 
     // Renders the settings field for blocked keywords
