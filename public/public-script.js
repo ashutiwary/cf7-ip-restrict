@@ -5,12 +5,14 @@ document.addEventListener("DOMContentLoaded", function () {
   // 0 means a session cookie, so the prompt resets when the browser closes.
   var MAX_AGE_SECONDS = parseInt(settings.repeatMaxAge, 10) || 0;
 
+  var CONFIRM_FIELD = "cf7-ip-restrict-confirm";
   var REPEAT_TEXT = "You Already Submitted Form. Do you want to Submit Again?";
-  // Keyed by the reason the server sends back, not by its message text.
-  var BLOCK_MESSAGES = {
+  var MESSAGES = {
     ip: "We're unable to accept your submission at this time. Please contact us directly if you need assistance.",
     keyword: "Your submission contains inapropriate words",
+    repeat: REPEAT_TEXT,
   };
+  var SHOWS_SUBMIT_AGAIN = { repeat: true };
 
   var modal = document.getElementById("cfcustomErrorModal");
   var submitAgainButton = modal && modal.querySelector(".cf-unblock");
@@ -92,19 +94,26 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     clearSubmitted();
+
+    var confirmField = document.createElement("input");
+    confirmField.type = "hidden";
+    confirmField.name = CONFIRM_FIELD;
+    confirmField.value = "1";
+    form.appendChild(confirmField);
+
     if (window.wpcf7 && wpcf7.submit) {
       wpcf7.submit(form);
     } else {
       form.submit();
     }
+    confirmField.remove();
   });
 
-  // Blocklist and keyword rejections come back with our own reason key. The
-  // server strips CF7's field errors, so the modal is the only feedback.
   function showBlock(event) {
     var reason = (event.detail.apiResponse || {}).cf7_ip_restrict;
-    if (reason && BLOCK_MESSAGES[reason]) {
-      openModal(BLOCK_MESSAGES[reason], false);
+    if (reason && MESSAGES[reason]) {
+      pendingForm = event.target;
+      openModal(MESSAGES[reason], !!SHOWS_SUBMIT_AGAIN[reason]);
     }
   }
 

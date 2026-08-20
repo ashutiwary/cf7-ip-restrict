@@ -36,6 +36,7 @@ class CF7_IP_Restrict
         add_action('init', array($this, 'define_public_hooks'));
         $this->load_dependencies();
         $this->define_admin_hooks();
+        add_action(CF7_IP_Restrict_Public::CLEANUP_HOOK, 'delete_transient');
     }
 
     private function load_dependencies()
@@ -61,5 +62,6 @@ class CF7_IP_Restrict
         add_action('wp_enqueue_scripts', array($plugin_public, 'enqueue_scripts'));
         add_filter('wpcf7_validate', array($plugin_public, 'check_ip_before_submission'), 20, 2);
         add_filter('wpcf7_feedback_response', array($plugin_public, 'filter_feedback_response'), 10, 2);
+        add_action('wpcf7_before_send_mail', array($plugin_public, 'remember_submission'));
     }
 }

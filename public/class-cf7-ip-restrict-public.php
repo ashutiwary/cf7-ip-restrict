@@ -2,6 +2,9 @@
 
 class CF7_IP_Restrict_Public
 {
+    const CONFIRM_FIELD = 'cf7-ip-restrict-confirm';
+    const CLEANUP_HOOK = 'cf7_ip_restrict_cleanup_repeat';
+
     // Set when this plugin rejects a submission, read back when the response
     // is built so CF7's own field-level output can be dropped.
     private $block_reason = '';
@@ -24,6 +27,36 @@ class CF7_IP_Restrict_Public
         $seconds = get_option('cf7_ip_restrict_repeat_unit', 'minutes') === 'seconds' ? $amount : $amount * MINUTE_IN_SECONDS;
 
         return min($seconds, 30 * DAY_IN_SECONDS);
+    }
+
+    // 0 means "session cookie" client-side; server-side falls back to a day.
+    private function repeat_window_seconds()
+    {
+        $seconds = $this->repeat_max_age();
+        return $seconds > 0 ? $seconds : DAY_IN_SECONDS;
+    }
+
+    private function repeat_transient_key($user_ip)
+    {
+        $packed = $this->ip_key($user_ip);
+        return $packed === '' ? '' : 'cf7_ip_restrict_repeat_' . bin2hex($packed);
+    }
+
+    public function remember_submission($contact_form)
+    {
+        if (!get_option('cf7_ip_restrict_repeat_enabled', '1')) {
+            return;
+        }
+        $key = $this->repeat_transient_key(CF7_IP_Restrict::client_ip());
+        if ($key === '') {
+            return;
+        }
+
+        $seconds = $this->repeat_window_seconds();
+        set_transient($key, true, $seconds);
+
+        wp_clear_scheduled_hook(self::CLEANUP_HOOK, array($key));
+        wp_schedule_single_event(time() + $seconds, self::CLEANUP_HOOK, array($key));
     }
 
     // One address can be written several ways, so compare canonical binary
@@ -109,6 +142,13 @@ class CF7_IP_Restrict_Public
             if (stripos($haystack, $keyword) !== false
                 || preg_match('/' . preg_quote($keyword, '/') . '/iu', $haystack)) {
                 return $this->block($result, $tags, 'keyword', "Your submission contains inapropriate words");
+            }
+        }
+
+        if (get_option('cf7_ip_restrict_repeat_enabled', '1') && empty($_POST[self::CONFIRM_FIELD])) {
+            $key = $this->repeat_transient_key($user_ip);
+            if ($key !== '' && get_transient($key)) {
+                return $this->block($result, $tags, 'repeat', "You already submitted this form recently.");
             }
         }
 

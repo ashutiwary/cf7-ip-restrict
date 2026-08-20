@@ -71,8 +71,8 @@ class CF7_IP_Restrict_Admin
             </span>
         </div>
         <p class="description">
-            On by default. Off, visitors can submit as often as they like with no prompt.
-            <span class="cf7-ip-restrict-when-on"<?php echo $hidden; ?>>Use <strong>0</strong> to keep the prompt until the browser is closed. Capped at 30 days.</span>
+            Detects repeats by cookie and IP, so a different browser or device is still caught.
+            <span class="cf7-ip-restrict-when-on"<?php echo $hidden; ?>><strong>0</strong> = until the browser closes. Capped at 30 days.</span>
         </p>
 <?php
     }

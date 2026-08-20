@@ -10,7 +10,7 @@ A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/con
 
 | Rule | Behaviour | Where it runs |
 | --- | --- | --- |
-| **Repeat submission** | Once a visitor has submitted any form, the next submit attempt on **any page** opens a modal: *"You Already Submitted Form. Do you want to Submit Again?"* — **Submit Again** sends it, **Close** cancels and leaves the typed input alone. Can be switched off, and the window is configurable. | Browser only |
+| **Repeat submission** | Once a visitor has submitted any form, the next submit attempt on **any page** opens a modal: *"You Already Submitted Form. Do you want to Submit Again?"* — **Submit Again** sends it, **Close** cancels and leaves the typed input alone. Detected by browser cookie and, as a fallback, by matching the visitor's IP, so a different browser or device on the same connection is still caught. Can be switched off, and the window is configurable. | Browser + server |
 | **IP block** | IPs listed in settings are rejected outright. The modal appears with the *Submit Again* button hidden, and **no red error text is added to any field**. | Server |
 | **Keyword block** | A blocked keyword in **any** field — name, email, subject, message, dropdowns, checkboxes — rejects the submission (whole word, case-insensitive), no retry offered. Also modal-only, with no field error. | Server |
 
@@ -43,7 +43,9 @@ define('CF7_IP_RESTRICT_TRUST_PROXY', true);
 
 ### Repeat-submission window
 
-The prompt is driven by a `cf7_already_submitted` cookie whose lifetime comes from the **Repeat Window** setting. With the default of `0` it is a session cookie, so the prompt resets when the browser closes. The amount and unit are passed to the front end via `wp_localize_script` as `cf7IpRestrict`.
+The prompt is driven by a `cf7_already_submitted` cookie, and separately by a server-side record of the visitor's IP, both timed from the **Repeat Window** setting. With the default of `0` the cookie is session-only; the server can't express "until the browser closes", so it falls back to a day. The amount and unit are passed to the front end via `wp_localize_script` as `cf7IpRestrict`.
+
+The IP record deletes itself exactly when its window ends (`wp_schedule_single_event`), not just via WordPress's daily transient sweep — so it never lingers past its own expiry.
 
 Because these are site settings rather than per-visitor state, a page cache holding them briefly is harmless — unlike the visitor's own "already submitted" flag, which is why that lives in a cookie instead.
 
@@ -59,9 +61,11 @@ Because these are site settings rather than per-visitor state, a page cache hold
 | `public/public-style.css` | Modal styling |
 | `index.php` | Empty-index guard against directory listing |
 
-**Repeat submission** never reaches the server. A capture-phase `submit` listener on `document` runs before CF7's own handler, so when the cookie is present the submission is stopped with `preventDefault()` before anything is posted — no request, no validation error, nothing to suppress. *Submit Again* clears the cookie and calls `wpcf7.submit(form)` on the same form. The cookie is set on CF7's `wpcf7mailsent` event, which re-arms the prompt for next time.
+**Repeat submission** has two independent layers. The fast path: a capture-phase `submit` listener on `document` runs before CF7's own handler, so when the cookie is present the submission is stopped with `preventDefault()` before anything is posted — no request, no validation error, nothing to suppress. The cookie is set on CF7's `wpcf7mailsent` event.
 
-Because the state lives in a cookie rather than a server transient, page caching can't serve a stale answer, and there's no round trip before the modal opens. The document-level listener also covers forms injected later by AJAX.
+The fallback: `wpcf7_before_send_mail` records the visitor's IP in a transient on every successful send, and `check_ip_before_submission` (the same `wpcf7_validate` filter used for IP/keyword blocking) checks it on the next attempt. This is what catches a different browser, a private window, or a cleared cookie on the same connection — cases the cookie alone can't see. It reports back as `reason: 'repeat'` through the same `wpcf7_feedback_response` filter described below, so it gets the same modal with no red field errors.
+
+Either layer triggers the same modal. *Submit Again* clears the cookie, adds a hidden `cf7-ip-restrict-confirm` field so the resubmission isn't caught by the IP check again, and calls `wpcf7.submit(form)` on the same form. The document-level listener also covers forms injected later by AJAX.
 
 **IP and keyword blocking** run server-side on the `wpcf7_validate` filter and use `$result->invalidate()`, which is what actually stops the mail. The error is attached to the first form tag that has a name, because CF7 silently discards errors attached to an unnamed tag such as `[submit]`.
 
@@ -77,15 +81,15 @@ The filter returns the response untouched unless this plugin was the thing that 
 
 ## Known limitations
 
-- **There is no server-side throttle.** The repeat-submission prompt is a browser-side courtesy; anything ignoring cookies and JavaScript submits freely. This is a deliberate consequence of the feature — the prompt has to be dismissible, so it cannot also be enforcement. Use a CAPTCHA if spam is the actual problem.
-- **The modal wording lives in the JavaScript** and is not translatable as written. The server-side message strings are now internal only — the front end keys off `ip` / `keyword` — so rewording either side is safe.
-- **The IP-block modal says "Permanently Blocked"** although the block is fully reversible by editing the list. Kept as the original wording; change the string in `BLOCK_MESSAGES` in `public/public-script.js` if you would rather it read less final.
+- **Repeat submission is a courtesy, not enforcement.** Both the cookie and the IP record are checked before the mail sends, but *Submit Again* always lets the visitor through, and its confirm field is just a hidden form value — nothing stops a script from sending it on every request. This is inherent to a dismissible prompt: it can inconvenience a bot, not stop one. Use a CAPTCHA if spam is the actual problem.
+- **The modal wording lives in the JavaScript** and is not translatable as written. The server-side message strings are now internal only — the front end keys off `ip` / `keyword` / `repeat` — so rewording either side is safe.
 - **A block hides other validation errors on the same submission.** If a visitor is IP-blocked and also left a required field empty, only the modal shows. They are blocked regardless, so the empty field is moot.
 - **A blocked IP still needs to be the address the server sees.** On a local install every request arrives from `127.0.0.1` or `::1`, so a public IP looked up externally will never match. Behind a proxy or CDN, see the opt-in constant above.
 - **Keywords cannot contain commas or newlines** — those are the list separators.
 - **Keywords match inside longer words.** This is deliberate so that `hello` catches `hello123@gmail.com`, but it also means `ass` flags `Cassandra` and `sex` flags `Sussex`. Choose keywords with that in mind — prefer longer, more specific strings.
 - **Uploaded file names are not scanned.** `get_posted_data()` does not include `$_FILES`, so a keyword in an attachment's filename does not block the submission.
-- **The prompt is per browser, not per person.** A new browser, a private window, or cleared cookies starts fresh.
+- **The IP fallback is per connection, not per person.** A shared IP — an office, a mobile carrier, a household — means one person's submission can prompt everyone behind it. A VPN or a mobile network change gives a genuinely new IP and starts fresh.
+- **Behind a proxy or CDN without `CF7_IP_RESTRICT_TRUST_PROXY` set, the IP fallback can't tell visitors apart** — see the proxy section above. The cookie still works normally in that case.
 - **The Logged-in Users toggle has no role exceptions.** Turning it on applies the rules to every logged-in user including administrators, so a blocked IP blocks your own account too.
 
 ## Changelog
@@ -97,6 +101,7 @@ The filter returns the response untouched unless this plugin was the thing that 
 - **Repeat Submissions** toggle to turn the repeat-submission prompt on or off from the admin.
 - **Repeat Window** controls — an amount plus a Seconds/Minutes unit for how long the prompt lasts, replacing the hardcoded value in the JavaScript. `0` keeps it until the browser closes; values are capped at 30 days. They sit on the right of the toggle's own row and hide when the toggle is off.
 - **Logged-in Users** toggle on the settings page. Previously logged-in users were always exempt with no way to change it; the exemption is now opt-out.
+- The repeat-submission prompt now also triggers by matching the visitor's IP server-side, catching a different browser or device on the same connection. The cookie stays as the instant, no-request path; the IP check is the fallback for when it isn't present.
 
 **Changed**
 
