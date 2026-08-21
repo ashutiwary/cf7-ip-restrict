@@ -7,6 +7,95 @@ class CF7_IP_Restrict_Admin
     {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_footer', array($this, 'deactivate_consent_modal'));
+        add_action('wp_ajax_cf7_ip_restrict_purge_consent', array($this, 'save_purge_consent'));
+    }
+
+    // Asked on deactivation, applied later by uninstall.php. Nothing is removed
+    // here. Bulk deactivate and WP-CLI skip it and leave the stored answer as is.
+    public function deactivate_consent_modal()
+    {
+        $screen = get_current_screen();
+
+        if (!$screen || $screen->base !== 'plugins' || !current_user_can('deactivate_plugins')) {
+            return;
+        }
+
+        $basename = plugin_basename(dirname(__DIR__) . '/cf7-iprestrict.php');
+?>
+        <dialog id="cf7-ip-restrict-purge" style="max-width:480px;padding:24px;border:1px solid #c3c4c7;border-radius:4px;">
+            <h2 style="margin-top:0;">Deactivate CF7 IP Restrict</h2>
+            <p>Deactivating stops all IP blocking, keyword blocking, and repeat-submission prompts. <strong>Nothing is removed from your database right now, whichever option you pick.</strong></p>
+            <p>
+                <label>
+                    <input type="checkbox" id="cf7-ip-restrict-purge-box" <?php checked(get_site_option('cf7_ip_restrict_delete_data'), '1'); ?>>
+                    <strong>Delete my data when I delete this plugin.</strong> Blocked IPs, blocked keywords, settings, and repeat-submission records go permanently &mdash; but only if and when you click Delete on the Plugins screen.
+                </label>
+            </p>
+            <p class="description">Left unchecked, everything stays in the database even after the plugin is deleted, so a reinstall picks up where you left off.</p>
+            <p style="text-align:right;margin-bottom:0;">
+                <button type="button" class="button" data-cf7-ip-restrict="cancel">Cancel</button>
+                <button type="button" class="button button-primary" data-cf7-ip-restrict="go">Deactivate</button>
+            </p>
+        </dialog>
+        <script>
+            (function () {
+                var dialog = document.getElementById('cf7-ip-restrict-purge');
+                var box = document.getElementById('cf7-ip-restrict-purge-box');
+                // Matched on the href, not the link id core builds from the name.
+                var selector = 'tr[data-plugin="<?php echo esc_js($basename); ?>"] a[href*="action=deactivate"]';
+                var href = '';
+
+                document.addEventListener('click', function (e) {
+                    var link = e.target.closest && e.target.closest(selector);
+                    if (!link) {
+                        return;
+                    }
+                    e.preventDefault();
+                    href = link.href;
+                    dialog.showModal();
+                });
+
+                dialog.querySelector('[data-cf7-ip-restrict="cancel"]').addEventListener('click', function () {
+                    dialog.close();
+                });
+
+                dialog.querySelector('[data-cf7-ip-restrict="go"]').addEventListener('click', function () {
+                    this.disabled = true;
+                    fetch(ajaxurl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: new URLSearchParams({
+                            action: 'cf7_ip_restrict_purge_consent',
+                            nonce: '<?php echo esc_js(wp_create_nonce('cf7_ip_restrict_purge')); ?>',
+                            purge: box.checked ? '1' : ''
+                        })
+                    }).then(function () {
+                        window.location = href;
+                    });
+                });
+            })();
+        </script>
+    <?php
+    }
+
+    // Network-wide, since deleting the plugin removes the files for every site.
+    // get_site_option falls back to the options table on single sites.
+    public function save_purge_consent()
+    {
+        check_ajax_referer('cf7_ip_restrict_purge', 'nonce');
+
+        if (!current_user_can('deactivate_plugins')) {
+            wp_send_json_error(null, 403);
+        }
+
+        if (empty($_POST['purge'])) {
+            delete_site_option('cf7_ip_restrict_delete_data');
+        } else {
+            update_site_option('cf7_ip_restrict_delete_data', '1');
+        }
+
+        wp_send_json_success();
     }
 
     // Adds the settings page under Contact Form 7's own menu ("wpcf7" is CF7's

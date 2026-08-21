@@ -55,10 +55,11 @@ Because these are site settings rather than per-visitor state, a page cache hold
 | --- | --- |
 | `cf7-iprestrict.php` | Plugin header, CF7 dependency check, bootstrap |
 | `includes/class-cf7-ip-restrict.php` | Hook registration, shared `to_list()` option parser |
-| `admin/class-cf7-ip-restrict-admin.php` | Settings page (Settings API), input sanitising |
+| `admin/class-cf7-ip-restrict-admin.php` | Settings page (Settings API), input sanitising, deactivation consent modal |
 | `public/class-cf7-ip-restrict-public.php` | IP/keyword validation, modal markup |
 | `public/public-script.js` | Repeat-submission prompt, modal behaviour |
 | `public/public-style.css` | Modal styling |
+| `uninstall.php` | Removes stored data on delete, only if consented |
 | `index.php` | Empty-index guard against directory listing |
 
 **Repeat submission** has two independent layers. The fast path: a capture-phase `submit` listener on `document` runs before CF7's own handler, so when the cookie is present the submission is stopped with `preventDefault()` before anything is posted — no request, no validation error, nothing to suppress. The cookie is set on CF7's `wpcf7mailsent` event.
@@ -79,6 +80,14 @@ The filter returns the response untouched unless this plugin was the thing that 
 
 **Blocking has no time limit.** IP and keyword blocks hold no state and no expiry — every submission is re-checked against the current settings, so a block lasts exactly as long as the entry stays in the list. Removing an IP from the list unblocks it on the very next submission. The **Repeat Window** setting applies only to the repeat-submission prompt and has nothing to do with these two rules.
 
+## Uninstalling
+
+Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way — the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all six options and every repeat transient.
+
+The question is asked on deactivation rather than on delete because WordPress only offers the Delete link once a plugin is **deactivated** (`! is_plugin_active()` in `class-wp-plugins-list-table.php`), and a deactivated plugin loads no code — so no plugin can render a dialog on its own Delete click. Deactivation is the last moment this plugin's code still runs.
+
+The modal is a native `<dialog>`, so Esc and the focus trap come free. It intercepts the Deactivate link in JS, saves the answer over `admin-ajax` (nonce plus `deactivate_plugins`), then follows the original link. The answer is a network-wide site option, since deleting the plugin removes the files for every site at once. Bulk **Deactivate** and WP-CLI never show the modal and leave the stored answer untouched.
+
 ## Known limitations
 
 - **Repeat submission is a courtesy, not enforcement.** Both the cookie and the IP record are checked before the mail sends, but *Submit Again* always lets the visitor through, and its confirm field is just a hidden form value — nothing stops a script from sending it on every request. This is inherent to a dismissible prompt: it can inconvenience a bot, not stop one. Use a CAPTCHA if spam is the actual problem.
@@ -97,6 +106,8 @@ The filter returns the response untouched unless this plugin was the thing that 
 ### 2.2.0
 
 **Added**
+
+- `uninstall.php` plus a consent modal on **Deactivate**, so deleting the plugin can clean up after itself instead of silently orphaning its option rows. Opt-in, and nothing is removed until the plugin is actually deleted.
 
 - **Repeat Submissions** toggle to turn the repeat-submission prompt on or off from the admin.
 - **Repeat Window** controls — an amount plus a Seconds/Minutes unit for how long the prompt lasts, replacing the hardcoded value in the JavaScript. `0` keeps it until the browser closes; values are capped at 30 days. They sit on the right of the toggle's own row and hide when the toggle is off.

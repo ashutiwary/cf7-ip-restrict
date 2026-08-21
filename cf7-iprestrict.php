@@ -10,6 +10,7 @@
 if (!defined('ABSPATH')) exit;
 
 
+
 // Activation check function
 function cf7_ip_restrict_activation_check()
 {
