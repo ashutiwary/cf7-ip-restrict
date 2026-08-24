@@ -118,6 +118,7 @@ class CF7_IP_Restrict_Admin
     {
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_ips', array('sanitize_callback' => array($this, 'sanitize_ips')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_keywords', array('sanitize_callback' => array($this, 'sanitize_keywords')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_personal_domains', array('sanitize_callback' => array($this, 'sanitize_domains')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_apply_to_logged_in', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => array($this, 'sanitize_duration')));
@@ -128,6 +129,7 @@ class CF7_IP_Restrict_Admin
         add_settings_field('cf7_ip_restrict_field_logged_in', 'Logged-in Users', array($this, 'apply_to_logged_in_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
         add_settings_field('cf7_ip_restrict_field_ips', 'Blocked IP Addresses', array($this, 'blocked_ips_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
         add_settings_field('cf7_ip_restrict_field_keywords', 'Blocked Keywords', array($this, 'blocked_keywords_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
+        add_settings_field('cf7_ip_restrict_field_domains', 'Personal Email Domains', array($this, 'personal_domains_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
     }
 
     // Renders a checkbox styled as an on/off switch
@@ -323,6 +325,14 @@ class CF7_IP_Restrict_Admin
         echo '<p class="description">Enter keywords to block, one per line or separated by commas. Case-insensitive, and matched anywhere they appear including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
     }
 
+    // Renders the settings field for personal email domains
+    public function personal_domains_field_callback()
+    {
+        $domains = get_option('cf7_ip_restrict_personal_domains');
+        echo '<textarea name="cf7_ip_restrict_personal_domains" class="large-text" rows="5" placeholder="gmail.com, yahoo.com, hotmail.com, outlook.com">' . esc_textarea($domains) . '</textarea>';
+        echo '<p class="description">Domains that count as personal rather than business email, one per line or separated by commas. A submission from a listed domain is <strong>still delivered to you</strong>, but the visitor sees &ldquo;' . esc_html(CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE) . '&rdquo; under the email field instead of the thank-you message, and what they typed stays in the form. Case-insensitive, and matched exactly, so <code>gmail.com</code> does not cover <code>mail.gmail.com</code>. Leave empty to turn the notice off.</p>';
+    }
+
     // Keeps only valid IPs and tells the admin which entries were dropped.
     public function sanitize_ips($input)
     {
@@ -346,6 +356,33 @@ class CF7_IP_Restrict_Admin
         }
 
         return implode(', ', $valid);
+    }
+
+    // Stores canonical domains and tells the admin which entries were dropped.
+    public function sanitize_domains($input)
+    {
+        $valid = array();
+        $invalid = array();
+
+        foreach (CF7_IP_Restrict::to_list($input) as $entry) {
+            $domain = CF7_IP_Restrict::normalize_domain(sanitize_text_field($entry));
+
+            if ($domain !== '') {
+                $valid[] = $domain;
+            } else {
+                $invalid[] = $entry;
+            }
+        }
+
+        if ($invalid) {
+            add_settings_error(
+                'cf7_ip_restrict_personal_domains',
+                'cf7_ip_restrict_invalid_domains',
+                'Ignored entries that are not email domains: ' . esc_html(implode(', ', $invalid))
+            );
+        }
+
+        return implode(', ', array_unique($valid));
     }
 
     // An unchecked box is absent from the POST, so WordPress passes null here.

@@ -1,8 +1,8 @@
 # CF7 IP Restrict
 
-A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/contact-form-7/) visitors before a repeat submission, and blocks submissions by IP address and by keyword. All three surface in a modal instead of CF7's inline error text.
+A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/contact-form-7/) visitors before a repeat submission, asks for a business email address in place of a personal one, and blocks submissions by IP address and by keyword. The blocks and the repeat prompt surface in a modal instead of CF7's inline error text; the business-email notice deliberately uses CF7's own inline error styling.
 
-- **Version:** 2.2.0
+- **Version:** 2.3.0
 - **Author:** Ashu Tiwary
 - **Requires:** WordPress, Contact Form 7 (active)
 
@@ -13,8 +13,9 @@ A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/con
 | **Repeat submission** | Once a visitor has submitted any form, the next submit attempt on **any page** opens a modal: *"You Already Submitted Form. Do you want to Submit Again?"* — **Submit Again** sends it, **Close** cancels and leaves the typed input alone. Detected by browser cookie and, as a fallback, by matching the visitor's IP, so a different browser or device on the same connection is still caught. Can be switched off, and the window is configurable. | Browser + server |
 | **IP block** | IPs listed in settings are rejected outright. The modal appears with the *Submit Again* button hidden, and **no red error text is added to any field**. | Server |
 | **Keyword block** | A blocked keyword in **any** field — name, email, subject, message, dropdowns, checkboxes — rejects the submission (whole word, case-insensitive), no retry offered. Also modal-only, with no field error. | Server |
+| **Business email** | An email address on a listed personal domain (`gmail.com`, `yahoo.com`, …) is **never rejected** — the submission is processed and delivered as normal. The visitor sees CF7's usual red *"Please enter your business email address."* under the email field, keeps everything they typed, and gets no thank-you message or redirect. | Server |
 
-Logged-in users are exempt from all three by default — none of the front-end hooks are registered for them, so test in a private window. Flip the **Logged-in Users** toggle in settings to apply the rules to them as well.
+Logged-in users are exempt from the three blocking rules by default — those front-end hooks are not registered for them, so test in a private window. Flip the **Logged-in Users** toggle in settings to apply them to logged-in users as well. The business-email notice is **not** covered by that toggle: it rejects nothing, so it applies to everyone including administrators.
 
 ## Install
 
@@ -30,6 +31,7 @@ Logged-in users are exempt from all three by default — none of the front-end h
 - **Logged-in Users** — off by default. On, every rule below also applies to logged-in users, including administrators. Leave it off while you are testing forms from your own account.
 - **Blocked IP Addresses** — one per line or comma-separated. Entries that are not valid IPs are dropped on save and named in an admin notice.
 - **Blocked Keywords** — one per line or comma-separated. Case-insensitive, matched **anywhere** the keyword appears, including inside a longer word or an email address. `hello` blocks `hello123@gmail.com`, `nr.abchello@abc.com` and `abc@hello.com`. Punctuation works as written, so `.ru`, `$$$`, `bit.ly` and `c++` are all valid keywords.
+- **Personal Email Domains** — one per line or comma-separated, e.g. `gmail.com, yahoo.com, hotmail.com, outlook.com`. **Empty by default**, which turns the notice off entirely — no domain is treated as personal until you list it. Matching is case-insensitive and **exact**, so `gmail.com` does not cover `mail.gmail.com`. Entries are stored lowercased with any `@` prefix stripped (`@gmail.com` and `user@gmail.com` are both accepted and saved as `gmail.com`), and anything that is not a domain — a bare `gmail`, an IP address — is dropped on save and named in an admin notice.
 
 ### Behind a proxy or CDN
 
@@ -54,9 +56,9 @@ Because these are site settings rather than per-visitor state, a page cache hold
 | File | Role |
 | --- | --- |
 | `cf7-iprestrict.php` | Plugin header, CF7 dependency check, bootstrap |
-| `includes/class-cf7-ip-restrict.php` | Hook registration, shared `to_list()` option parser |
+| `includes/class-cf7-ip-restrict.php` | Hook registration, shared `to_list()` option parser, email-domain helpers |
 | `admin/class-cf7-ip-restrict-admin.php` | Settings page (Settings API), input sanitising, deactivation consent modal |
-| `public/class-cf7-ip-restrict-public.php` | IP/keyword validation, modal markup |
+| `public/class-cf7-ip-restrict-public.php` | IP/keyword validation, business-email check, modal markup |
 | `public/public-script.js` | Repeat-submission prompt, modal behaviour |
 | `public/public-style.css` | Modal styling |
 | `uninstall.php` | Removes stored data on delete, only if consented |
@@ -78,11 +80,28 @@ That invalidation is then hidden from the visitor. A `wpcf7_feedback_response` f
 
 The filter returns the response untouched unless this plugin was the thing that rejected the submission, so other plugins' validation errors are unaffected.
 
+**The business-email notice** is the inverse of a block. `check_business_email` runs on the same `wpcf7_validate` filter at priority 30 but never calls `invalidate()`, so validation passes and CF7 sends the mail exactly as it normally would. Only the response is rewritten afterwards.
+
+That rewrite leans on how CF7's own script is structured: it renders `invalid_fields` unconditionally, but does the form reset, the thank-you text and the `wpcf7mailsent` event **only** inside a `'mail_sent' === status` check. Reporting an already-sent submission back as `validation_failed` therefore produces precisely the wanted result, with no custom JavaScript or CSS:
+
+| CF7 script behaviour | Gated on | Result |
+| --- | --- | --- |
+| `form.reset()` | `status === 'mail_sent'` | skipped, so the typed values stay on screen |
+| `.wpcf7-response-output` text | always | shows the form's own *Validation errors* message, not the thank-you |
+| `wpcf7mailsent` event | `status` maps to `sent` | never fires, so no thank-you redirect |
+| `invalid_fields.forEach()` | unconditional | red tip, `wpcf7-not-valid` and `aria-invalid` on the email field |
+
+The domain is read from every form tag whose basetype is `email`, validated with `filter_var(..., FILTER_VALIDATE_EMAIL)` before the part after the last `@` is taken, then compared with both sides lowercased — so `user@gmail.com`, `USER@GMAIL.COM` and `user@Gmail.com` all match a `gmail.com` entry. The banner text comes from the form's own **Validation errors** message (Contact → your form → Messages), so it stays editable and translatable.
+
+A flagged submission is also **not recorded for repeat detection**: `remember_submission` skips the IP transient, and the cookie is never set because it is armed by `wpcf7mailsent`, which no longer fires. Correcting the address and submitting again therefore goes straight through instead of meeting the *Submit Again* modal.
+
+The domain list never reaches the browser — nothing is localised to JavaScript, and only the single message is returned on a hit.
+
 **Blocking has no time limit.** IP and keyword blocks hold no state and no expiry — every submission is re-checked against the current settings, so a block lasts exactly as long as the entry stays in the list. Removing an IP from the list unblocks it on the very next submission. The **Repeat Window** setting applies only to the repeat-submission prompt and has nothing to do with these two rules.
 
 ## Uninstalling
 
-Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way — the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all six options and every repeat transient.
+Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way — the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all seven options and every repeat transient.
 
 The question is asked on deactivation rather than on delete because WordPress only offers the Delete link once a plugin is **deactivated** (`! is_plugin_active()` in `class-wp-plugins-list-table.php`), and a deactivated plugin loads no code — so no plugin can render a dialog on its own Delete click. Deactivation is the last moment this plugin's code still runs.
 
@@ -100,8 +119,26 @@ The modal is a native `<dialog>`, so Esc and the focus trap come free. It interc
 - **The IP fallback is per connection, not per person.** A shared IP — an office, a mobile carrier, a household — means one person's submission can prompt everyone behind it. A VPN or a mobile network change gives a genuinely new IP and starts fresh.
 - **Behind a proxy or CDN without `CF7_IP_RESTRICT_TRUST_PROXY` set, the IP fallback can't tell visitors apart** — see the proxy section above. The cookie still works normally in that case.
 - **The Logged-in Users toggle has no role exceptions.** Turning it on applies the rules to every logged-in user including administrators, so a blocked IP blocks your own account too.
+- **The business-email notice reports a successful send as a validation failure.** That is exactly what keeps the form filled in and suppresses the thank-you, but it also means browser-side conversion tracking bound to `wpcf7mailsent` does not fire for those submissions. Listen for `wpcf7submit` and read `event.detail.apiResponse` instead.
+- **With JavaScript disabled the business-email notice is not displayed.** CF7 posts the form normally and `wpcf7_feedback_response` never runs, so the visitor sees only CF7's own message. The check itself is server-side, and since it rejects nothing there is nothing to bypass — the mail is delivered either way.
+- **Personal domains match exactly, not by suffix.** `gmail.com` does not cover `mail.gmail.com`; list every subdomain you care about. This is the opposite of keyword matching, on purpose — a domain list full of accidental partial matches would flag business addresses.
+- **A visitor can probe the domain list one address at a time.** The list itself is never sent to the browser, but submitting a form and watching for the notice reveals whether any single domain is on it. That is inherent to giving the feedback at all.
 
 ## Changelog
+
+### 2.3.0
+
+**Added**
+
+- **Personal Email Domains** setting — a list of free/personal email domains managed entirely from the admin, no code changes needed. Empty by default, so nothing changes on upgrade until it is filled in. Invalid entries are dropped on save and named in an admin notice, and an `@` prefix or a whole pasted address is accepted and stored as just the domain.
+- A submission whose email address uses a listed domain is **still processed and delivered** to the configured business address. The visitor sees *"Please enter your business email address."* under the email field in CF7's normal error styling, keeps everything they typed, and gets no thank-you message and no redirect. Nothing is ever rejected.
+- Matching is case-insensitive and exact, runs server-side only, and validates the address with `filter_var(..., FILTER_VALIDATE_EMAIL)` before the domain is extracted. The list is never exposed to the front end — no domain is localised to JavaScript.
+- A flagged submission is not recorded for repeat detection, so correcting the address and submitting again goes straight through instead of meeting the *Submit Again* modal.
+- The notice is exempt from the **Logged-in Users** toggle, which gates the three blocking rules only. It rejects nothing, so it applies to everyone.
+
+**Changed**
+
+- `uninstall.php` also removes `cf7_ip_restrict_personal_domains` when data deletion was consented to.
 
 ### 2.2.0
 

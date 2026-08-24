@@ -4,10 +4,14 @@ class CF7_IP_Restrict_Public
 {
     const CONFIRM_FIELD = 'cf7-ip-restrict-confirm';
     const CLEANUP_HOOK = 'cf7_ip_restrict_cleanup_repeat';
+    const BUSINESS_EMAIL_MESSAGE = 'Please enter your business email address.';
 
     // Set when this plugin rejects a submission, read back when the response
     // is built so CF7's own field-level output can be dropped.
     private $block_reason = '';
+
+    // Email field that was filled in with a personal domain, if any.
+    private $personal_email_field = '';
 
     public function enqueue_scripts()
     {
@@ -44,7 +48,9 @@ class CF7_IP_Restrict_Public
 
     public function remember_submission($contact_form)
     {
-        if (!get_option('cf7_ip_restrict_repeat_enabled', '1')) {
+        // A submission that got the business-email notice is not remembered, so
+        // correcting the address and sending again is not treated as a repeat.
+        if ($this->personal_email_field !== '' || !get_option('cf7_ip_restrict_repeat_enabled', '1')) {
             return;
         }
         $key = $this->repeat_transient_key(CF7_IP_Restrict::client_ip());
@@ -96,10 +102,57 @@ class CF7_IP_Restrict_Public
         return $result;
     }
 
+    // A personal domain is a nudge, never a rejection: $result is returned
+    // untouched, so CF7 carries on and the mail is sent as normal.
+    public function check_business_email($result, $tags)
+    {
+        $domains = CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_personal_domains'));
+        $submission = WPCF7_Submission::get_instance();
+
+        if (!$domains || !$submission) {
+            return $result;
+        }
+
+        $posted = $submission->get_posted_data();
+
+        foreach ($tags as $tag) {
+            if ($tag->basetype !== 'email' || empty($tag->name) || !isset($posted[$tag->name])) {
+                continue;
+            }
+
+            // to_list also splits the comma-separated value an email field
+            // posts when it carries the "multiple:" option.
+            foreach ((array) $posted[$tag->name] as $value) {
+                foreach (CF7_IP_Restrict::to_list($value) as $address) {
+                    if (CF7_IP_Restrict::is_personal_email($address, $domains)) {
+                        $this->personal_email_field = $tag->name;
+                        return $result;
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+
     // Keeps the rejection but removes CF7's field-level errors and banner text,
     // and hands the reason to the front end so the modal knows what to say.
     public function filter_feedback_response($response, $result)
     {
+        // Mail is already sent here. Reporting a failed validation is what keeps
+        // the typed values and stops the thank-you, reset and any redirect.
+        if ($this->personal_email_field !== '' && isset($response['status']) && $response['status'] === 'mail_sent') {
+            $contact_form = isset($response['contact_form_id']) ? wpcf7_contact_form($response['contact_form_id']) : null;
+            $message = $contact_form ? $contact_form->message('validation_error') : '';
+
+            $response['status'] = 'validation_failed';
+            $response['message'] = $message !== '' ? $message : self::BUSINESS_EMAIL_MESSAGE;
+            $response['invalid_fields'][] = array(
+                'field'   => str_replace('.', '_', $this->personal_email_field),
+                'message' => self::BUSINESS_EMAIL_MESSAGE,
+            );
+        }
+
         if (!$this->block_reason) {
             return $response;
         }
