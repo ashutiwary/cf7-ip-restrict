@@ -2,11 +2,15 @@
 
 class CF7_IP_Restrict_Admin
 {
+    // Screen id of the settings page, so its stylesheet loads nowhere else.
+    private $hook_suffix = '';
+
     // Constructor to add the necessary WordPress hooks
     public function __construct()
     {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_styles'));
         add_action('admin_footer', array($this, 'deactivate_consent_modal'));
         add_action('wp_ajax_cf7_ip_restrict_purge_consent', array($this, 'save_purge_consent'));
     }
@@ -103,7 +107,7 @@ class CF7_IP_Restrict_Admin
     // Plugins row still resolves.
     public function add_admin_menu()
     {
-        add_submenu_page(
+        $this->hook_suffix = add_submenu_page(
             'wpcf7',
             'CF7 IP Restrict Settings',
             'CF7 IP Restrict',
@@ -113,7 +117,16 @@ class CF7_IP_Restrict_Admin
         );
     }
 
-    // Registers settings, sections, and fields with the WordPress Settings API
+    public function enqueue_styles($hook)
+    {
+        if ($hook === $this->hook_suffix) {
+            wp_enqueue_style('cf7-ip-restrict-admin', plugin_dir_url(__FILE__) . 'admin-style.css', array('dashicons'), CF7_IP_RESTRICT_VERSION);
+        }
+    }
+
+    // Registers the options with the Settings API, which is what gives the page
+    // its nonce, capability check and per-option sanitising. The fields are laid
+    // out by hand in display_settings_page() rather than by do_settings_sections.
     public function register_settings()
     {
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_ips', array('sanitize_callback' => array($this, 'sanitize_ips')));
@@ -123,44 +136,37 @@ class CF7_IP_Restrict_Admin
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => array($this, 'sanitize_duration')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_unit', array('sanitize_callback' => array($this, 'sanitize_unit')));
-
-        add_settings_section('cf7_ip_restrict_main', 'Main Settings', null, 'cf7-ip-restrict-settings');
-        add_settings_field('cf7_ip_restrict_field_repeat', 'Repeat Submissions', array($this, 'repeat_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
-        add_settings_field('cf7_ip_restrict_field_logged_in', 'Logged-in Users', array($this, 'apply_to_logged_in_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
-        add_settings_field('cf7_ip_restrict_field_ips', 'Blocked IP Addresses', array($this, 'blocked_ips_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
-        add_settings_field('cf7_ip_restrict_field_keywords', 'Blocked Keywords', array($this, 'blocked_keywords_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
-        add_settings_field('cf7_ip_restrict_field_domains', 'Personal Email Domains', array($this, 'personal_domains_field_callback'), 'cf7-ip-restrict-settings', 'cf7_ip_restrict_main');
     }
 
-    // Renders a checkbox styled as an on/off switch
+    // Renders a checkbox styled as an on/off switch. The text sits outside the
+    // label so only the switch itself is clickable; aria-label keeps the name.
     private function switch_field($option, $label, $default = '')
     {
-        echo '<label class="cf7-ip-restrict-switch">';
-        echo '<input type="checkbox" name="' . esc_attr($option) . '" value="1" ' . checked(get_option($option, $default), '1', false) . '>';
+        echo '<span class="cf7-ip-restrict-switch">';
+        echo '<label class="cf7-ip-restrict-toggle">';
+        echo '<input type="checkbox" name="' . esc_attr($option) . '" value="1" aria-label="' . esc_attr($label) . '" ' . checked(get_option($option, $default), '1', false) . '>';
         echo '<span class="cf7-ip-restrict-slider"></span>';
-        echo '<span class="cf7-ip-restrict-switch-text">' . esc_html($label) . '</span>';
         echo '</label>';
+        echo '<span class="cf7-ip-restrict-switch-text">' . esc_html($label) . '</span>';
+        echo '</span>';
     }
 
-    // Switch on the left, how-long controls on the right of the same row.
-    // The controls are rendered hidden when the switch is off so there is no
-    // flash of them before the inline script runs.
+    // The how-long controls are rendered hidden when the switch is off so there
+    // is no flash of them before the inline script runs.
     public function repeat_field_callback()
     {
         $hidden = get_option('cf7_ip_restrict_repeat_enabled', '1') ? '' : ' hidden';
         $unit = get_option('cf7_ip_restrict_repeat_unit', 'minutes');
 ?>
-        <div class="cf7-ip-restrict-row">
-            <?php $this->switch_field('cf7_ip_restrict_repeat_enabled', 'Ask visitors to confirm before they submit a form again', '1'); ?>
-            <span class="cf7-ip-restrict-window cf7-ip-restrict-when-on"<?php echo $hidden; ?>>
-                <input type="number" name="cf7_ip_restrict_repeat_duration" value="<?php echo esc_attr(absint(get_option('cf7_ip_restrict_repeat_duration', 0))); ?>" min="0" step="1" aria-label="How long the prompt lasts">
-                <select name="cf7_ip_restrict_repeat_unit" aria-label="Unit">
-                    <?php foreach (array('seconds' => 'Seconds', 'minutes' => 'Minutes') as $value => $text) : ?>
-                        <option value="<?php echo esc_attr($value); ?>" <?php selected($unit, $value); ?>><?php echo esc_html($text); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </span>
-        </div>
+        <?php $this->switch_field('cf7_ip_restrict_repeat_enabled', 'Ask visitors to confirm before they submit a form again', '1'); ?>
+        <span class="cf7-ip-restrict-window cf7-ip-restrict-when-on"<?php echo $hidden; ?>>
+            <input type="number" name="cf7_ip_restrict_repeat_duration" value="<?php echo esc_attr(absint(get_option('cf7_ip_restrict_repeat_duration', 0))); ?>" min="0" step="1" aria-label="How long the prompt lasts">
+            <select name="cf7_ip_restrict_repeat_unit" aria-label="Unit">
+                <?php foreach (array('seconds' => 'Seconds', 'minutes' => 'Minutes') as $value => $text) : ?>
+                    <option value="<?php echo esc_attr($value); ?>" <?php selected($unit, $value); ?>><?php echo esc_html($text); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </span>
         <p class="description">
             Detects repeats by cookie and IP, so a different browser or device is still caught.
             <span class="cf7-ip-restrict-when-on"<?php echo $hidden; ?>><strong>0</strong> = until the browser closes. Capped at 30 days.</span>
@@ -175,145 +181,135 @@ class CF7_IP_Restrict_Admin
         echo '<p class="description">Off by default, so administrators can keep testing forms without being blocked.</p>';
     }
 
-    // Displays the main settings page content
+    // Every tab renders inside the one form: options.php writes null over any
+    // registered option missing from the POST, so hiding is CSS, never markup.
     public function display_settings_page()
     {
+        $tabs = array(
+            'general' => array('General', 'dashicons-admin-generic'),
+            'captcha' => array('Captcha', 'dashicons-shield'),
+            'domains' => array('Domain Block', 'dashicons-email-alt'),
+        );
 ?>
-        <style>
-            .cf7-ip-restrict-switch {
-                display: inline-flex;
-                align-items: center;
-                gap: 10px;
-                cursor: pointer;
-            }
-            .cf7-ip-restrict-switch input {
-                position: absolute;
-                opacity: 0;
-            }
-            .cf7-ip-restrict-slider {
-                position: relative;
-                flex: 0 0 auto;
-                width: 44px;
-                height: 24px;
-                background: #c3c4c7;
-                border-radius: 12px;
-                transition: background 0.2s;
-            }
-            .cf7-ip-restrict-slider::before {
-                content: "";
-                position: absolute;
-                top: 3px;
-                left: 3px;
-                width: 18px;
-                height: 18px;
-                background: #fff;
-                border-radius: 50%;
-                transition: transform 0.2s;
-            }
-            .cf7-ip-restrict-switch input:checked + .cf7-ip-restrict-slider {
-                background: #2271b1;
-            }
-            .cf7-ip-restrict-switch input:checked + .cf7-ip-restrict-slider::before {
-                transform: translateX(20px);
-            }
-            .cf7-ip-restrict-switch input:focus-visible + .cf7-ip-restrict-slider {
-                box-shadow: 0 0 0 2px #2271b1;
-            }
-
-            /* Switch left, how-long controls right, on one line */
-            .cf7-ip-restrict-row {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 24px;
-                max-width: 720px;
-            }
-
-            /* Amount and unit joined into a single pill */
-            .cf7-ip-restrict-window {
-                display: inline-flex;
-                align-items: stretch;
-                flex: 0 0 auto;
-            }
-            .cf7-ip-restrict-window[hidden],
-            .description .cf7-ip-restrict-when-on[hidden] {
-                display: none;
-            }
-            .cf7-ip-restrict-window input,
-            .cf7-ip-restrict-window select {
-                height: 36px;
-                margin: 0;
-                border: 1px solid #8c8f94;
-                background: #fff;
-                color: #2c3338;
-                font-size: 14px;
-                line-height: 1;
-                box-shadow: none;
-                transition: border-color 0.15s, box-shadow 0.15s;
-            }
-            .cf7-ip-restrict-window input {
-                width: 76px;
-                padding: 0 10px;
-                text-align: center;
-                border-radius: 6px 0 0 6px;
-                border-right: 0;
-            }
-            .cf7-ip-restrict-window select {
-                min-width: 108px;
-                padding: 0 30px 0 12px;
-                border-radius: 0 6px 6px 0;
-                background-color: #f6f7f7;
-            }
-            .cf7-ip-restrict-window input:hover,
-            .cf7-ip-restrict-window select:hover {
-                border-color: #646970;
-            }
-            .cf7-ip-restrict-window input:focus,
-            .cf7-ip-restrict-window select:focus {
-                position: relative;
-                z-index: 1;
-                border-color: #2271b1;
-                box-shadow: 0 0 0 1px #2271b1;
-                outline: 2px solid transparent;
-            }
-        </style>
-        <div class="wrap">
-            <h2>CF7 IP Restrict Settings</h2>
-            <?php settings_errors(); ?>
-            <?php if (is_user_logged_in() && !get_option('cf7_ip_restrict_apply_to_logged_in')) : ?>
-                <div class="notice notice-warning inline">
-                    <p><strong>None of these rules apply to you right now.</strong> You are logged in, and <em>Logged-in Users</em> is off, so your own submissions are never blocked &mdash; not even by the IP list below. Test in a private window, or turn that toggle on.</p>
-                </div>
-            <?php endif; ?>
+        <div class="cf7-ip-restrict-app">
             <form action="options.php" method="post">
-                <?php
-                settings_fields('cf7_ip_restrict_settings');
-                do_settings_sections('cf7-ip-restrict-settings');
-                submit_button();
-                ?>
+                <?php settings_fields('cf7_ip_restrict_settings'); ?>
+                <div class="cf7-ip-restrict-layout">
+                    <aside class="cf7-ip-restrict-sidebar">
+                        <div class="cf7-ip-restrict-brand">
+                            <strong>CF7 IP Restrict</strong>
+                            <span>v<?php echo esc_html(CF7_IP_RESTRICT_VERSION); ?></span>
+                        </div>
+                        <nav class="cf7-ip-restrict-nav">
+                            <?php foreach ($tabs as $slug => $tab) : ?>
+                                <button type="button" class="cf7-ip-restrict-tab" data-tab="<?php echo esc_attr($slug); ?>" data-title="<?php echo esc_attr($tab[0] . ' Settings'); ?>">
+                                    <span class="dashicons <?php echo esc_attr($tab[1]); ?>" aria-hidden="true"></span>
+                                    <?php echo esc_html($tab[0]); ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </nav>
+                    </aside>
+                    <div class="cf7-ip-restrict-main">
+                        <header class="cf7-ip-restrict-header">
+                            <h1 class="cf7-ip-restrict-title"><?php echo esc_html($tabs['general'][0] . ' Settings'); ?></h1>
+                            <button type="submit" class="cf7-ip-restrict-save">Save Changes</button>
+                        </header>
+                        <div class="cf7-ip-restrict-body">
+                            <?php settings_errors(); ?>
+                            <?php if (is_user_logged_in() && !get_option('cf7_ip_restrict_apply_to_logged_in')) : ?>
+                                <div class="notice notice-warning inline">
+                                    <p><strong>None of these rules apply to you right now.</strong> You are logged in, and <em>Logged-in Users</em> is off, so your own submissions are never blocked &mdash; not even by the IP list. Test in a private window, or turn that toggle on.</p>
+                                </div>
+                            <?php endif; ?>
+
+                            <section class="cf7-ip-restrict-panel" data-panel="general">
+                                <div class="cf7-ip-restrict-grid">
+                                    <?php
+                                    $this->card('Repeat Submissions', 'repeat_field_callback');
+                                    $this->card('Logged-in Users', 'apply_to_logged_in_field_callback');
+                                    $this->card('Blocked IP Addresses', 'blocked_ips_field_callback');
+                                    $this->card('Blocked Keywords', 'blocked_keywords_field_callback');
+                                    ?>
+                                </div>
+                            </section>
+
+                            <section class="cf7-ip-restrict-panel" data-panel="captcha" hidden>
+                                <div class="cf7-ip-restrict-grid">
+                                    <div class="cf7-ip-restrict-card">
+                                        <h2>Captcha</h2>
+                                        <p class="description">Not built yet.</p>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="cf7-ip-restrict-panel" data-panel="domains" hidden>
+                                <div class="cf7-ip-restrict-grid">
+                                    <?php $this->card('Personal Email Domains', 'personal_domains_field_callback'); ?>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
             </form>
         </div>
         <script>
             (function () {
-                var toggle = document.querySelector('input[name="cf7_ip_restrict_repeat_enabled"]');
-                if (!toggle) {
-                    return;
+                var app = document.querySelector('.cf7-ip-restrict-app');
+                var tabs = app.querySelectorAll('.cf7-ip-restrict-tab');
+                var panels = app.querySelectorAll('.cf7-ip-restrict-panel');
+                var title = app.querySelector('.cf7-ip-restrict-title');
+
+                function show(slug) {
+                    tabs.forEach(function (tab) {
+                        var active = tab.dataset.tab === slug;
+                        tab.classList.toggle('is-active', active);
+                        if (active) {
+                            title.textContent = tab.dataset.title;
+                        }
+                    });
+                    panels.forEach(function (panel) {
+                        panel.hidden = panel.dataset.panel !== slug;
+                    });
                 }
-                toggle.addEventListener('change', function () {
-                    document.querySelectorAll('.cf7-ip-restrict-when-on').forEach(function (el) {
-                        el.hidden = !toggle.checked;
+
+                tabs.forEach(function (tab) {
+                    tab.addEventListener('click', function () {
+                        location.hash = tab.dataset.tab;
+                        show(tab.dataset.tab);
                     });
                 });
+
+                // Browsers keep the fragment across the redirect options.php does
+                // after saving, so you land back on the tab you saved from.
+                var wanted = location.hash.slice(1).replace(/[^a-z]/g, '');
+                show(app.querySelector('.cf7-ip-restrict-panel[data-panel="' + wanted + '"]') ? wanted : 'general');
+
+                var toggle = app.querySelector('input[name="cf7_ip_restrict_repeat_enabled"]');
+                if (toggle) {
+                    toggle.addEventListener('change', function () {
+                        app.querySelectorAll('.cf7-ip-restrict-when-on').forEach(function (el) {
+                            el.hidden = !toggle.checked;
+                        });
+                    });
+                }
             })();
         </script>
     <?php
+    }
+
+    // Wraps one field callback in a titled card.
+    private function card($title, $callback)
+    {
+        echo '<div class="cf7-ip-restrict-card"><h2>' . esc_html($title) . '</h2>';
+        call_user_func(array($this, $callback));
+        echo '</div>';
     }
 
     // Renders the settings field for blocked IP addresses
     public function blocked_ips_field_callback()
     {
         $ips = get_option('cf7_ip_restrict_blocked_ips');
-        echo '<textarea name="cf7_ip_restrict_blocked_ips" class="large-text" rows="5">' . esc_textarea($ips) . '</textarea>';
+        echo '<textarea name="cf7_ip_restrict_blocked_ips" rows="5" placeholder="Enter IP addresses...">' . esc_textarea($ips) . '</textarea>';
         echo '<p class="description">Enter IP addresses to block, one per line or separated by commas (e.g., 192.168.1.1, 10.0.0.2). Anyone submitting a form from a listed address is refused.</p>';
     }
 
@@ -321,7 +317,7 @@ class CF7_IP_Restrict_Admin
     public function blocked_keywords_field_callback()
     {
         $keywords = get_option('cf7_ip_restrict_blocked_keywords');
-        echo '<textarea name="cf7_ip_restrict_blocked_keywords" class="large-text" rows="5">' . esc_textarea($keywords) . '</textarea>';
+        echo '<textarea name="cf7_ip_restrict_blocked_keywords" rows="5" placeholder="Enter keywords...">' . esc_textarea($keywords) . '</textarea>';
         echo '<p class="description">Enter keywords to block, one per line or separated by commas. Case-insensitive, and matched anywhere they appear including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
     }
 
@@ -329,7 +325,7 @@ class CF7_IP_Restrict_Admin
     public function personal_domains_field_callback()
     {
         $domains = get_option('cf7_ip_restrict_personal_domains');
-        echo '<textarea name="cf7_ip_restrict_personal_domains" class="large-text" rows="5" placeholder="gmail.com, yahoo.com, hotmail.com, outlook.com">' . esc_textarea($domains) . '</textarea>';
+        echo '<textarea name="cf7_ip_restrict_personal_domains" rows="5" placeholder="gmail.com, yahoo.com, hotmail.com, outlook.com">' . esc_textarea($domains) . '</textarea>';
         echo '<p class="description">Domains that count as personal rather than business email, one per line or separated by commas. A submission from a listed domain is <strong>still delivered to you</strong>, but the visitor sees &ldquo;' . esc_html(CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE) . '&rdquo; under the email field instead of the thank-you message, and what they typed stays in the form. Case-insensitive, and matched exactly, so <code>gmail.com</code> does not cover <code>mail.gmail.com</code>. Leave empty to turn the notice off.</p>';
     }
 

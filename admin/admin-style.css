@@ -1,0 +1,341 @@
+/* Settings page layout. Enqueued only on this plugin's own admin screen. */
+
+#wpcontent {
+    padding-left: 0;
+}
+
+#wpbody-content {
+    padding-bottom: 0;
+}
+
+.cf7-ip-restrict-app {
+    --cf7ipr-brand: #0129ac;
+    --cf7ipr-brand-dark: #001b7d;
+    --cf7ipr-brand-soft: #eaefff;
+    --cf7ipr-border: #e3e6ed;
+    --cf7ipr-surface: #fff;
+    --cf7ipr-field: #f7f8fc;
+    --cf7ipr-text: #14181f;
+    --cf7ipr-muted: #6b7280;
+
+    color: var(--cf7ipr-text);
+    font-size: 14px;
+}
+
+.cf7-ip-restrict-app *,
+.cf7-ip-restrict-app *::before,
+.cf7-ip-restrict-app *::after {
+    box-sizing: border-box;
+}
+
+.cf7-ip-restrict-layout {
+    display: flex;
+    align-items: stretch;
+    min-height: calc(100vh - 32px);
+    background: var(--cf7ipr-surface);
+}
+
+/* Sidebar */
+
+.cf7-ip-restrict-sidebar {
+    flex: 0 0 280px;
+    padding: 28px 20px;
+    border-right: 1px solid var(--cf7ipr-border);
+    background: #fbfcfe;
+}
+
+.cf7-ip-restrict-brand {
+    padding: 0 12px 24px;
+}
+
+.cf7-ip-restrict-brand strong {
+    display: block;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.cf7-ip-restrict-brand span {
+    color: var(--cf7ipr-muted);
+    font-size: 12px;
+}
+
+.cf7-ip-restrict-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cf7-ip-restrict-tab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--cf7ipr-text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cf7-ip-restrict-tab:hover {
+    background: var(--cf7ipr-brand-soft);
+}
+
+.cf7-ip-restrict-tab.is-active {
+    background: var(--cf7ipr-brand);
+    color: #fff;
+}
+
+.cf7-ip-restrict-tab:focus-visible {
+    outline: 2px solid var(--cf7ipr-brand);
+    outline-offset: 2px;
+}
+
+.cf7-ip-restrict-tab .dashicons {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+}
+
+/* Header */
+
+.cf7-ip-restrict-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.cf7-ip-restrict-header {
+    position: sticky;
+    top: 32px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--cf7ipr-border);
+    background: var(--cf7ipr-surface);
+}
+
+.cf7-ip-restrict-header h1 {
+    margin: 0;
+    padding: 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.cf7-ip-restrict-save {
+    flex: 0 0 auto;
+    padding: 11px 22px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--cf7ipr-brand);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cf7-ip-restrict-save:hover {
+    background: var(--cf7ipr-brand-dark);
+}
+
+.cf7-ip-restrict-save:focus-visible {
+    outline: 2px solid var(--cf7ipr-brand);
+    outline-offset: 2px;
+}
+
+/* Panels and cards */
+
+.cf7-ip-restrict-body {
+    padding: 28px 32px 48px;
+}
+
+.cf7-ip-restrict-body .notice {
+    margin: 0 0 24px;
+}
+
+.cf7-ip-restrict-panel[hidden] {
+    display: none;
+}
+
+/* No align-items, so cards stretch to the tallest in their row. */
+.cf7-ip-restrict-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+
+@media (max-width: 1100px) {
+    .cf7-ip-restrict-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cf7-ip-restrict-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 24px;
+    border: 1px solid var(--cf7ipr-border);
+    border-radius: 14px;
+    background: var(--cf7ipr-surface);
+}
+
+.cf7-ip-restrict-card h2 {
+    margin: 0;
+    padding: 0;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.cf7-ip-restrict-card .description {
+    margin: 0;
+    color: var(--cf7ipr-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* Absorbs the slack in a stretched card, so paired textareas match too. */
+.cf7-ip-restrict-card textarea {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 132px;
+    padding: 12px 14px;
+    border: 1px solid var(--cf7ipr-border);
+    border-radius: 10px;
+    background: var(--cf7ipr-field);
+    color: var(--cf7ipr-text);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+}
+
+.cf7-ip-restrict-card textarea:focus {
+    border-color: var(--cf7ipr-brand);
+    box-shadow: 0 0 0 1px var(--cf7ipr-brand);
+    outline: 2px solid transparent;
+}
+
+/* On/off switch */
+
+.cf7-ip-restrict-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Only the switch is clickable, so the label text keeps the normal cursor. */
+.cf7-ip-restrict-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.cf7-ip-restrict-switch input {
+    position: absolute;
+    opacity: 0;
+}
+
+.cf7-ip-restrict-slider {
+    position: relative;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 24px;
+    background: #c3c4c7;
+    border-radius: 12px;
+    transition: background 0.2s;
+}
+
+.cf7-ip-restrict-slider::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.cf7-ip-restrict-switch input:checked + .cf7-ip-restrict-slider {
+    background: var(--cf7ipr-brand);
+}
+
+.cf7-ip-restrict-switch input:checked + .cf7-ip-restrict-slider::before {
+    transform: translateX(20px);
+}
+
+.cf7-ip-restrict-switch input:focus-visible + .cf7-ip-restrict-slider {
+    box-shadow: 0 0 0 2px var(--cf7ipr-brand);
+}
+
+.cf7-ip-restrict-switch-text {
+    line-height: 1.5;
+}
+
+/* Amount and unit joined into a single pill */
+
+.cf7-ip-restrict-window {
+    display: inline-flex;
+    align-items: stretch;
+    flex: 0 0 auto;
+}
+
+.cf7-ip-restrict-window[hidden],
+.cf7-ip-restrict-card .description .cf7-ip-restrict-when-on[hidden] {
+    display: none;
+}
+
+.cf7-ip-restrict-window input,
+.cf7-ip-restrict-window select {
+    height: 40px;
+    margin: 0;
+    border: 1px solid var(--cf7ipr-border);
+    background: var(--cf7ipr-surface);
+    color: var(--cf7ipr-text);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1;
+    box-shadow: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.cf7-ip-restrict-window input {
+    width: 88px;
+    padding: 0 12px;
+    border-radius: 8px 0 0 8px;
+    border-right: 0;
+}
+
+.cf7-ip-restrict-window select {
+    min-width: 116px;
+    padding: 0 30px 0 14px;
+    border-radius: 0 8px 8px 0;
+    background-color: var(--cf7ipr-field);
+}
+
+.cf7-ip-restrict-window input:hover,
+.cf7-ip-restrict-window select:hover {
+    border-color: #b8bdc9;
+}
+
+.cf7-ip-restrict-window input:focus,
+.cf7-ip-restrict-window select:focus {
+    position: relative;
+    z-index: 1;
+    border-color: var(--cf7ipr-brand);
+    box-shadow: 0 0 0 1px var(--cf7ipr-brand);
+    outline: 2px solid transparent;
+}

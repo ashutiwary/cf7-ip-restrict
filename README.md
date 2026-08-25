@@ -27,6 +27,16 @@ Logged-in users are exempt from the three blocking rules by default — those fr
 
 **Contact → IP Restrict** in the admin sidebar, or the *Settings* link on the Plugins row.
 
+The page has its own layout — a left nav, a sticky header with one **Save Changes** button, and settings grouped into cards — across three tabs:
+
+| Tab | Contains |
+| --- | --- |
+| **General** | Repeat Submissions, Logged-in Users, Blocked IP Addresses, Blocked Keywords |
+| **Captcha** | Placeholder, nothing implemented yet |
+| **Domain Block** | Personal Email Domains |
+
+All three tabs render inside a **single form**, and switching tabs only shows and hides them. That is deliberate: `options.php` writes `null` over any option registered in the group that is absent from the POST, so rendering only the active tab's fields would silently wipe the other tabs' settings on every save. One form, one submit, every option always posted.
+
 - **Repeat Submissions** — on by default. Off, visitors can submit as often as they like with no prompt; IP and keyword blocking are unaffected. On the right of the same row sits the window: a number plus **Seconds** or **Minutes**, for how long after a submission the prompt keeps appearing. **0** keeps it until the browser is closed, and values are capped at 30 days. The window controls are hidden while the toggle is off.
 - **Logged-in Users** — off by default. On, every rule below also applies to logged-in users, including administrators. Leave it off while you are testing forms from your own account.
 - **Blocked IP Addresses** — one per line or comma-separated. Entries that are not valid IPs are dropped on save and named in an admin notice.
@@ -58,6 +68,7 @@ Because these are site settings rather than per-visitor state, a page cache hold
 | `cf7-iprestrict.php` | Plugin header, CF7 dependency check, bootstrap |
 | `includes/class-cf7-ip-restrict.php` | Hook registration, shared `to_list()` option parser, email-domain helpers |
 | `admin/class-cf7-ip-restrict-admin.php` | Settings page (Settings API), input sanitising, deactivation consent modal |
+| `admin/admin-style.css` | Settings page layout, loaded only on that screen |
 | `public/class-cf7-ip-restrict-public.php` | IP/keyword validation, business-email check, modal markup |
 | `public/public-script.js` | Repeat-submission prompt, modal behaviour |
 | `public/public-style.css` | Modal styling |
@@ -138,6 +149,9 @@ The modal is a native `<dialog>`, so Esc and the focus trap come free. It interc
 
 **Changed**
 
+- **Redesigned settings page** — left nav, sticky header with a single **Save Changes** button, and settings grouped into cards, on the brand colour `#0129ac`. Tabs are General, Captcha (placeholder) and Domain Block, which is where Personal Email Domains lives. Styles moved out of an inline `<style>` block into `admin/admin-style.css`, enqueued only on this screen.
+- The page no longer uses `add_settings_section()` / `do_settings_sections()`, which forced everything into a `form-table`. `register_setting()` stays, so the nonce, `manage_options` check and per-option sanitising are unchanged.
+- One `CF7_IP_RESTRICT_VERSION` constant replaces the version literals that were duplicated across the enqueue calls.
 - `uninstall.php` also removes `cf7_ip_restrict_personal_domains` when data deletion was consented to.
 - Front-end asset version strings follow the plugin version again, so `public-script.js` and `public-style.css` are re-fetched once on upgrade.
 

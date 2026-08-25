@@ -9,6 +9,8 @@
 
 if (!defined('ABSPATH')) exit;
 
+define('CF7_IP_RESTRICT_VERSION', '3.0.0');
+
 
 
 // Activation check function
