@@ -3,7 +3,7 @@
 /**
  * Plugin Name: CF7 IP Restrict
  * Description: Warns Contact Form 7 visitors before a repeat submission, asks for a business email address, and restricts IP addresses and keywords.
- * Version: 2.3.0
+ * Version: 3.0.0
  * Author: Ashu Tiwary
  */
 

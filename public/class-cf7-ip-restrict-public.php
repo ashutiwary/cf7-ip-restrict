@@ -16,8 +16,8 @@ class CF7_IP_Restrict_Public
     public function enqueue_scripts()
     {
         // Enqueue front-end scripts and styles.
-        wp_enqueue_style('cf7-ip-restrict-public-style', plugin_dir_url(__FILE__) . 'public-style.css', array(), '2.2.0', 'all');
-        wp_enqueue_script('cf7-ip-restrict-public-script', plugin_dir_url(__FILE__) . 'public-script.js', array(), '2.2.0', true);
+        wp_enqueue_style('cf7-ip-restrict-public-style', plugin_dir_url(__FILE__) . 'public-style.css', array(), '3.0.0', 'all');
+        wp_enqueue_script('cf7-ip-restrict-public-script', plugin_dir_url(__FILE__) . 'public-script.js', array(), '3.0.0', true);
         wp_localize_script('cf7-ip-restrict-public-script', 'cf7IpRestrict', array(
             'repeatEnabled' => get_option('cf7_ip_restrict_repeat_enabled', '1') ? 1 : 0,
             'repeatMaxAge'  => $this->repeat_max_age(),

@@ -2,7 +2,7 @@
 
 A WordPress plugin that warns [Contact Form 7](https://wordpress.org/plugins/contact-form-7/) visitors before a repeat submission, asks for a business email address in place of a personal one, and blocks submissions by IP address and by keyword. The blocks and the repeat prompt surface in a modal instead of CF7's inline error text; the business-email notice deliberately uses CF7's own inline error styling.
 
-- **Version:** 2.3.0
+- **Version:** 3.0.0
 - **Author:** Ashu Tiwary
 - **Requires:** WordPress, Contact Form 7 (active)
 
@@ -126,7 +126,7 @@ The modal is a native `<dialog>`, so Esc and the focus trap come free. It interc
 
 ## Changelog
 
-### 2.3.0
+### 3.0.0
 
 **Added**
 
@@ -139,6 +139,11 @@ The modal is a native `<dialog>`, so Esc and the focus trap come free. It interc
 **Changed**
 
 - `uninstall.php` also removes `cf7_ip_restrict_personal_domains` when data deletion was consented to.
+- Front-end asset version strings follow the plugin version again, so `public-script.js` and `public-style.css` are re-fetched once on upgrade.
+
+**Breaking**
+
+- A submission flagged for a personal email domain reports back as `validation_failed` even though the mail was sent. Anything listening for `wpcf7mailsent` — analytics, GTM conversion tags, thank-you redirects — will not fire for those submissions. Suppressing the redirect is the point; if you track conversions that way, listen for `wpcf7submit` and read `event.detail.apiResponse` instead. Only affects sites that fill in the new, empty-by-default domain list.
 
 ### 2.2.0
 
