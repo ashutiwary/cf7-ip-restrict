@@ -121,12 +121,11 @@ class CF7_IP_Restrict_Public
             return $result;
         }
 
-        // An empty list of forms means every form, which is what sites that
-        // never opened the setting already had.
+        // Opt in per form: nothing happens until a form is ticked in settings.
         $forms = array_map('absint', (array) get_option('cf7_ip_restrict_domain_forms', array()));
         $contact_form = $submission->get_contact_form();
 
-        if ($forms && (!$contact_form || !in_array((int) $contact_form->id(), $forms, true))) {
+        if (!$forms || !$contact_form || !in_array((int) $contact_form->id(), $forms, true)) {
             return $result;
         }
 

@@ -358,7 +358,7 @@ class CF7_IP_Restrict_Admin
             echo '</label></li>';
         }
         echo '</ul>';
-        echo '<p class="description">Tick the forms that should ask for a business email address. Leave every box unchecked to apply it to <strong>all</strong> forms.</p>';
+        echo '<p class="description">Tick the forms that should ask for a business email address. <strong>Nothing happens until at least one form is ticked.</strong></p>';
     }
 
     // Renders the settings field for the message shown under the email field.
