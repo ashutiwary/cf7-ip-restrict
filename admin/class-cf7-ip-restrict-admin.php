@@ -33,7 +33,7 @@ class CF7_IP_Restrict_Admin
             <p>
                 <label>
                     <input type="checkbox" id="cf7-ip-restrict-purge-box" <?php checked(get_site_option('cf7_ip_restrict_delete_data'), '1'); ?>>
-                    <strong>Delete my data when I delete this plugin.</strong> Blocked IPs, blocked keywords, settings, and repeat-submission records go permanently &mdash; but only if and when you click Delete on the Plugins screen.
+                    <strong>Delete my data when I delete this plugin.</strong> Blocked IPs, blocked keywords, settings, and repeat-submission records go permanently - but only if and when you click Delete on the Plugins screen.
                 </label>
             </p>
             <p class="description">Left unchecked, everything stays in the database even after the plugin is deleted, so a reinstall picks up where you left off.</p>
@@ -223,7 +223,7 @@ class CF7_IP_Restrict_Admin
                             <?php settings_errors(); ?>
                             <?php if (is_user_logged_in() && !get_option('cf7_ip_restrict_apply_to_logged_in')) : ?>
                                 <div class="notice notice-warning inline">
-                                    <p><strong>None of these rules apply to you right now.</strong> You are logged in, and <em>Logged-in Users</em> is off, so your own submissions are never blocked &mdash; not even by the IP list. Test in a private window, or turn that toggle on.</p>
+                                    <p><strong>None of these rules apply to you right now.</strong> You are logged in, and <em>Logged-in Users</em> is off, so your own submissions are never blocked - not even by the IP list. Test in a private window, or turn that toggle on.</p>
                                 </div>
                             <?php endif; ?>
 
@@ -252,7 +252,7 @@ class CF7_IP_Restrict_Admin
                                     <?php $this->switch_field('cf7_ip_restrict_domain_enabled', 'Ask for a business email address', '1', '.cf7-ip-restrict-when-domains'); ?>
                                 </div>
                                 <p class="cf7-ip-restrict-intro cf7-ip-restrict-when-domains"<?php echo $domains_on; ?>>
-                                    Submissions from a personal domain are <strong>still delivered to you</strong> &mdash; the visitor just sees &ldquo;<?php echo esc_html(CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE); ?>&rdquo; under the email field, with their answers kept, instead of the thank-you message. Nothing is rejected.
+                                    Submissions from a personal domain are <strong>still delivered to you</strong> - the visitor just sees &ldquo;<?php echo esc_html(CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE); ?>&rdquo; under the email field, with their answers kept, instead of the thank-you message. Nothing is rejected.
                                 </p>
                                 <div class="cf7-ip-restrict-grid cf7-ip-restrict-when-domains"<?php echo $domains_on; ?>>
                                     <?php
