@@ -257,11 +257,13 @@
     line-height: 1.6;
 }
 
-/* Absorbs the slack in a stretched card, so paired textareas match too. */
-.cf7-ip-restrict-card textarea {
-    flex: 1 1 auto;
+.cf7-ip-restrict-card-wide {
+    grid-column: 1 / -1;
+}
+
+.cf7-ip-restrict-card textarea,
+.cf7-ip-restrict-card input[type="text"] {
     width: 100%;
-    min-height: 132px;
     padding: 12px 14px;
     border: 1px solid var(--cf7ipr-border);
     border-radius: 10px;
@@ -270,10 +272,17 @@
     font-family: inherit;
     font-size: 14px;
     line-height: 1.6;
+}
+
+/* Absorbs the slack in a stretched card, so paired textareas match too. */
+.cf7-ip-restrict-card textarea {
+    flex: 1 1 auto;
+    min-height: 132px;
     resize: vertical;
 }
 
-.cf7-ip-restrict-card textarea:focus {
+.cf7-ip-restrict-card textarea:focus,
+.cf7-ip-restrict-card input[type="text"]:focus {
     border-color: var(--cf7ipr-brand);
     box-shadow: 0 0 0 1px var(--cf7ipr-brand);
     outline: 2px solid transparent;

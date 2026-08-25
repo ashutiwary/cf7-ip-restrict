@@ -13,6 +13,14 @@ class CF7_IP_Restrict_Public
     // Email field that was filled in with a personal domain, if any.
     private $personal_email_field = '';
 
+    // The admin's own wording, falling back to the constant when left blank.
+    public static function business_email_message()
+    {
+        $message = trim((string) get_option('cf7_ip_restrict_domain_message', ''));
+
+        return $message !== '' ? $message : self::BUSINESS_EMAIL_MESSAGE;
+    }
+
     public function enqueue_scripts()
     {
         // Enqueue front-end scripts and styles.
@@ -155,10 +163,10 @@ class CF7_IP_Restrict_Public
             $message = $contact_form ? $contact_form->message('validation_error') : '';
 
             $response['status'] = 'validation_failed';
-            $response['message'] = $message !== '' ? $message : self::BUSINESS_EMAIL_MESSAGE;
+            $response['message'] = $message !== '' ? $message : self::business_email_message();
             $response['invalid_fields'][] = array(
                 'field'   => str_replace('.', '_', $this->personal_email_field),
-                'message' => self::BUSINESS_EMAIL_MESSAGE,
+                'message' => self::business_email_message(),
             );
         }
 

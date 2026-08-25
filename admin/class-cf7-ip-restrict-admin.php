@@ -134,6 +134,7 @@ class CF7_IP_Restrict_Admin
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_personal_domains', array('sanitize_callback' => array($this, 'sanitize_domains')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_forms', array('sanitize_callback' => array($this, 'sanitize_forms')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_message', array('sanitize_callback' => 'sanitize_text_field'));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_apply_to_logged_in', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => array($this, 'sanitize_duration')));
@@ -252,12 +253,13 @@ class CF7_IP_Restrict_Admin
                                     <?php $this->switch_field('cf7_ip_restrict_domain_enabled', 'Ask for a business email address', '1', '.cf7-ip-restrict-when-domains'); ?>
                                 </div>
                                 <p class="cf7-ip-restrict-intro cf7-ip-restrict-when-domains"<?php echo $domains_on; ?>>
-                                    Submissions from a personal domain are <strong>still delivered to you</strong> - the visitor just sees &ldquo;<?php echo esc_html(CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE); ?>&rdquo; under the email field, with their answers kept, instead of the thank-you message. Nothing is rejected.
+                                    Submissions from a personal domain are <strong>still delivered to you</strong> - the visitor just sees &ldquo;<?php echo esc_html(CF7_IP_Restrict_Public::business_email_message()); ?>&rdquo; under the email field, with their answers kept, instead of the thank-you message. Nothing is rejected.
                                 </p>
                                 <div class="cf7-ip-restrict-grid cf7-ip-restrict-when-domains"<?php echo $domains_on; ?>>
                                     <?php
                                     $this->card('Apply To Forms', 'domain_forms_field_callback');
                                     $this->card('Personal Email Domains', 'personal_domains_field_callback');
+                                    $this->card('Error Message', 'domain_message_field_callback', 'cf7-ip-restrict-card-wide');
                                     ?>
                                 </div>
                             </section>
@@ -312,9 +314,9 @@ class CF7_IP_Restrict_Admin
     }
 
     // Wraps one field callback in a titled card.
-    private function card($title, $callback)
+    private function card($title, $callback, $class = '')
     {
-        echo '<div class="cf7-ip-restrict-card"><h2>' . esc_html($title) . '</h2>';
+        echo '<div class="cf7-ip-restrict-card ' . esc_attr($class) . '"><h2>' . esc_html($title) . '</h2>';
         call_user_func(array($this, $callback));
         echo '</div>';
     }
@@ -357,6 +359,14 @@ class CF7_IP_Restrict_Admin
         }
         echo '</ul>';
         echo '<p class="description">Tick the forms that should ask for a business email address. Leave every box unchecked to apply it to <strong>all</strong> forms.</p>';
+    }
+
+    // Renders the settings field for the message shown under the email field.
+    public function domain_message_field_callback()
+    {
+        $default = CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE;
+        echo '<input type="text" name="cf7_ip_restrict_domain_message" value="' . esc_attr(get_option('cf7_ip_restrict_domain_message', '')) . '" placeholder="' . esc_attr($default) . '" maxlength="200">';
+        echo '<p class="description">Shown under the email field when the address uses a listed domain. Leave empty for the default, &ldquo;' . esc_html($default) . '&rdquo;.</p>';
     }
 
     // Renders the settings field for personal email domains

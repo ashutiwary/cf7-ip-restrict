@@ -33,7 +33,7 @@ The page has its own layout - a left nav, a sticky header with one **Save Change
 | --- | --- |
 | **General** | Repeat Submissions, Logged-in Users, Blocked IP Addresses, Blocked Keywords |
 | **Captcha** | Placeholder, nothing implemented yet |
-| **Domain Block** | Business-email switch, Apply To Forms, Personal Email Domains |
+| **Domain Block** | Business-email switch, Apply To Forms, Personal Email Domains, Error Message |
 
 All three tabs render inside a **single form**, and switching tabs only shows and hides them. That is deliberate: `options.php` writes `null` over any option registered in the group that is absent from the POST, so rendering only the active tab's fields would silently wipe the other tabs' settings on every save. One form, one submit, every option always posted.
 
@@ -44,6 +44,8 @@ All three tabs render inside a **single form**, and switching tabs only shows an
 - **Ask for a business email address** - the master switch at the top of the Domain Block tab, on by default. Off, nothing on the tab is shown and the check never runs, whatever the two settings below hold.
 - **Apply To Forms** - a checkbox per **published** Contact Form 7 form. Tick the ones that should ask for a business email address. **Leave every box unchecked to apply the notice to all forms**, which is what sites that never open the setting already had. Ids that no longer resolve to a real form are dropped on save, so deleting a form cannot leave a stale entry behind.
 - **Personal Email Domains** - one per line or comma-separated, e.g. `gmail.com, yahoo.com, hotmail.com, outlook.com`. **Empty by default**, which turns the notice off entirely - no domain is treated as personal until you list it. Matching is case-insensitive and **exact**, so `gmail.com` does not cover `mail.gmail.com`. Entries are stored lowercased with any `@` prefix stripped (`@gmail.com` and `user@gmail.com` are both accepted and saved as `gmail.com`), and anything that is not a domain - a bare `gmail`, an IP address - is dropped on save and named in an admin notice.
+
+- **Error Message** - the text shown under the email field. Leave it empty for the default, *"Please enter your business email address."* Plain text only; it is rendered with `textContent` on the front end, so markup is not interpreted.
 
 ### Behind a proxy or CDN
 
@@ -116,7 +118,7 @@ The domain list never reaches the browser - nothing is localised to JavaScript, 
 
 ## Uninstalling
 
-Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way - the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all nine options and every repeat transient.
+Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way - the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all ten options and every repeat transient.
 
 The question is asked on deactivation rather than on delete because WordPress only offers the Delete link once a plugin is **deactivated** (`! is_plugin_active()` in `class-wp-plugins-list-table.php`), and a deactivated plugin loads no code - so no plugin can render a dialog on its own Delete click. Deactivation is the last moment this plugin's code still runs.
 
