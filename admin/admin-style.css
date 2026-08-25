@@ -163,8 +163,60 @@
     margin: 0 0 24px;
 }
 
-.cf7-ip-restrict-panel[hidden] {
+/* Beats the display rules below, so hiding anything is just the attribute. */
+.cf7-ip-restrict-app [hidden] {
     display: none;
+}
+
+.cf7-ip-restrict-panel-head {
+    margin: 0 0 20px;
+}
+
+.cf7-ip-restrict-intro {
+    margin: 0 0 24px;
+    color: var(--cf7ipr-muted);
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.cf7-ip-restrict-intro strong {
+    color: var(--cf7ipr-text);
+}
+
+/* Checkbox list of forms. The whole row is meant to be clickable here. */
+.cf7-ip-restrict-forms {
+    flex: 1 1 auto;
+    width: 100%;
+    max-height: 264px;
+    margin: 0;
+    padding: 6px;
+    overflow-y: auto;
+    border: 1px solid var(--cf7ipr-border);
+    border-radius: 10px;
+    background: var(--cf7ipr-field);
+    list-style: none;
+}
+
+.cf7-ip-restrict-forms li {
+    margin: 0;
+}
+
+.cf7-ip-restrict-forms label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.cf7-ip-restrict-forms label:hover {
+    background: var(--cf7ipr-brand-soft);
+}
+
+.cf7-ip-restrict-forms input {
+    flex: 0 0 auto;
+    margin: 0;
 }
 
 /* No align-items, so cards stretch to the tallest in their row. */
@@ -291,11 +343,6 @@
     display: inline-flex;
     align-items: stretch;
     flex: 0 0 auto;
-}
-
-.cf7-ip-restrict-window[hidden],
-.cf7-ip-restrict-card .description .cf7-ip-restrict-when-on[hidden] {
-    display: none;
 }
 
 .cf7-ip-restrict-window input,

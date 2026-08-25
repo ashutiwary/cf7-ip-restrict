@@ -132,6 +132,8 @@ class CF7_IP_Restrict_Admin
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_ips', array('sanitize_callback' => array($this, 'sanitize_ips')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_keywords', array('sanitize_callback' => array($this, 'sanitize_keywords')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_personal_domains', array('sanitize_callback' => array($this, 'sanitize_domains')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_forms', array('sanitize_callback' => array($this, 'sanitize_forms')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_apply_to_logged_in', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => array($this, 'sanitize_duration')));
@@ -140,11 +142,13 @@ class CF7_IP_Restrict_Admin
 
     // Renders a checkbox styled as an on/off switch. The text sits outside the
     // label so only the switch itself is clickable; aria-label keeps the name.
-    private function switch_field($option, $label, $default = '')
+    private function switch_field($option, $label, $default = '', $controls = '')
     {
         echo '<span class="cf7-ip-restrict-switch">';
         echo '<label class="cf7-ip-restrict-toggle">';
-        echo '<input type="checkbox" name="' . esc_attr($option) . '" value="1" aria-label="' . esc_attr($label) . '" ' . checked(get_option($option, $default), '1', false) . '>';
+        echo '<input type="checkbox" name="' . esc_attr($option) . '" value="1" aria-label="' . esc_attr($label) . '"';
+        echo $controls ? ' data-cf7-toggle="' . esc_attr($controls) . '"' : '';
+        echo ' ' . checked(get_option($option, $default), '1', false) . '>';
         echo '<span class="cf7-ip-restrict-slider"></span>';
         echo '</label>';
         echo '<span class="cf7-ip-restrict-switch-text">' . esc_html($label) . '</span>';
@@ -158,8 +162,8 @@ class CF7_IP_Restrict_Admin
         $hidden = get_option('cf7_ip_restrict_repeat_enabled', '1') ? '' : ' hidden';
         $unit = get_option('cf7_ip_restrict_repeat_unit', 'minutes');
 ?>
-        <?php $this->switch_field('cf7_ip_restrict_repeat_enabled', 'Ask visitors to confirm before they submit a form again', '1'); ?>
-        <span class="cf7-ip-restrict-window cf7-ip-restrict-when-on"<?php echo $hidden; ?>>
+        <?php $this->switch_field('cf7_ip_restrict_repeat_enabled', 'Ask visitors to confirm before they submit a form again', '1', '.cf7-ip-restrict-when-repeat'); ?>
+        <span class="cf7-ip-restrict-window cf7-ip-restrict-when-repeat"<?php echo $hidden; ?>>
             <input type="number" name="cf7_ip_restrict_repeat_duration" value="<?php echo esc_attr(absint(get_option('cf7_ip_restrict_repeat_duration', 0))); ?>" min="0" step="1" aria-label="How long the prompt lasts">
             <select name="cf7_ip_restrict_repeat_unit" aria-label="Unit">
                 <?php foreach (array('seconds' => 'Seconds', 'minutes' => 'Minutes') as $value => $text) : ?>
@@ -169,7 +173,7 @@ class CF7_IP_Restrict_Admin
         </span>
         <p class="description">
             Detects repeats by cookie and IP, so a different browser or device is still caught.
-            <span class="cf7-ip-restrict-when-on"<?php echo $hidden; ?>><strong>0</strong> = until the browser closes. Capped at 30 days.</span>
+            <span class="cf7-ip-restrict-when-repeat"<?php echo $hidden; ?>><strong>0</strong> = until the browser closes. Capped at 30 days.</span>
         </p>
 <?php
     }
@@ -185,6 +189,7 @@ class CF7_IP_Restrict_Admin
     // registered option missing from the POST, so hiding is CSS, never markup.
     public function display_settings_page()
     {
+        $domains_on = get_option('cf7_ip_restrict_domain_enabled', '1') ? '' : ' hidden';
         $tabs = array(
             'general' => array('General', 'dashicons-admin-generic'),
             'captcha' => array('Captcha', 'dashicons-shield'),
@@ -243,8 +248,17 @@ class CF7_IP_Restrict_Admin
                             </section>
 
                             <section class="cf7-ip-restrict-panel" data-panel="domains" hidden>
-                                <div class="cf7-ip-restrict-grid">
-                                    <?php $this->card('Personal Email Domains', 'personal_domains_field_callback'); ?>
+                                <div class="cf7-ip-restrict-panel-head">
+                                    <?php $this->switch_field('cf7_ip_restrict_domain_enabled', 'Ask for a business email address', '1', '.cf7-ip-restrict-when-domains'); ?>
+                                </div>
+                                <p class="cf7-ip-restrict-intro cf7-ip-restrict-when-domains"<?php echo $domains_on; ?>>
+                                    Submissions from a personal domain are <strong>still delivered to you</strong> &mdash; the visitor just sees &ldquo;<?php echo esc_html(CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE); ?>&rdquo; under the email field, with their answers kept, instead of the thank-you message. Nothing is rejected.
+                                </p>
+                                <div class="cf7-ip-restrict-grid cf7-ip-restrict-when-domains"<?php echo $domains_on; ?>>
+                                    <?php
+                                    $this->card('Apply To Forms', 'domain_forms_field_callback');
+                                    $this->card('Personal Email Domains', 'personal_domains_field_callback');
+                                    ?>
                                 </div>
                             </section>
                         </div>
@@ -284,14 +298,14 @@ class CF7_IP_Restrict_Admin
                 var wanted = location.hash.slice(1).replace(/[^a-z]/g, '');
                 show(app.querySelector('.cf7-ip-restrict-panel[data-panel="' + wanted + '"]') ? wanted : 'general');
 
-                var toggle = app.querySelector('input[name="cf7_ip_restrict_repeat_enabled"]');
-                if (toggle) {
+                // Each switch shows or hides whatever its own selector matches.
+                app.querySelectorAll('[data-cf7-toggle]').forEach(function (toggle) {
                     toggle.addEventListener('change', function () {
-                        app.querySelectorAll('.cf7-ip-restrict-when-on').forEach(function (el) {
+                        app.querySelectorAll(toggle.dataset.cf7Toggle).forEach(function (el) {
                             el.hidden = !toggle.checked;
                         });
                     });
-                }
+                });
             })();
         </script>
     <?php
@@ -321,12 +335,36 @@ class CF7_IP_Restrict_Admin
         echo '<p class="description">Enter keywords to block, one per line or separated by commas. Case-insensitive, and matched anywhere they appear including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
     }
 
+    // Lists the published CF7 forms the business-email notice can apply to.
+    public function domain_forms_field_callback()
+    {
+        $selected = array_map('absint', (array) get_option('cf7_ip_restrict_domain_forms', array()));
+        $forms = class_exists('WPCF7_ContactForm')
+            ? WPCF7_ContactForm::find(array('post_status' => 'publish', 'orderby' => 'title', 'order' => 'ASC'))
+            : array();
+
+        if (!$forms) {
+            echo '<p class="description">No published Contact Form 7 forms found.</p>';
+            return;
+        }
+
+        echo '<ul class="cf7-ip-restrict-forms">';
+        foreach ($forms as $form) {
+            echo '<li><label>';
+            echo '<input type="checkbox" name="cf7_ip_restrict_domain_forms[]" value="' . absint($form->id()) . '"' . checked(in_array((int) $form->id(), $selected, true), true, false) . '>';
+            echo '<span>' . esc_html($form->title()) . '</span>';
+            echo '</label></li>';
+        }
+        echo '</ul>';
+        echo '<p class="description">Tick the forms that should ask for a business email address. Leave every box unchecked to apply it to <strong>all</strong> forms.</p>';
+    }
+
     // Renders the settings field for personal email domains
     public function personal_domains_field_callback()
     {
         $domains = get_option('cf7_ip_restrict_personal_domains');
         echo '<textarea name="cf7_ip_restrict_personal_domains" rows="5" placeholder="gmail.com, yahoo.com, hotmail.com, outlook.com">' . esc_textarea($domains) . '</textarea>';
-        echo '<p class="description">Domains that count as personal rather than business email, one per line or separated by commas. A submission from a listed domain is <strong>still delivered to you</strong>, but the visitor sees &ldquo;' . esc_html(CF7_IP_Restrict_Public::BUSINESS_EMAIL_MESSAGE) . '&rdquo; under the email field instead of the thank-you message, and what they typed stays in the form. Case-insensitive, and matched exactly, so <code>gmail.com</code> does not cover <code>mail.gmail.com</code>. Leave empty to turn the notice off.</p>';
+        echo '<p class="description">One per line or comma-separated. Matched exactly and case-insensitively, so <code>gmail.com</code> does not cover <code>mail.gmail.com</code>.</p>';
     }
 
     // Keeps only valid IPs and tells the admin which entries were dropped.
@@ -379,6 +417,22 @@ class CF7_IP_Restrict_Admin
         }
 
         return implode(', ', array_unique($valid));
+    }
+
+    // Keeps only ids that are really CF7 forms. Empty means every form.
+    public function sanitize_forms($input)
+    {
+        $valid = array();
+
+        foreach ((array) $input as $id) {
+            $id = absint($id);
+
+            if ($id && wpcf7_contact_form($id)) {
+                $valid[] = $id;
+            }
+        }
+
+        return array_values(array_unique($valid));
     }
 
     // An unchecked box is absent from the POST, so WordPress passes null here.

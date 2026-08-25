@@ -109,7 +109,16 @@ class CF7_IP_Restrict_Public
         $domains = CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_personal_domains'));
         $submission = WPCF7_Submission::get_instance();
 
-        if (!$domains || !$submission) {
+        if (!$domains || !$submission || !get_option('cf7_ip_restrict_domain_enabled', '1')) {
+            return $result;
+        }
+
+        // An empty list of forms means every form, which is what sites that
+        // never opened the setting already had.
+        $forms = array_map('absint', (array) get_option('cf7_ip_restrict_domain_forms', array()));
+        $contact_form = $submission->get_contact_form();
+
+        if ($forms && (!$contact_form || !in_array((int) $contact_form->id(), $forms, true))) {
             return $result;
         }
 

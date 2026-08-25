@@ -33,7 +33,7 @@ The page has its own layout — a left nav, a sticky header with one **Save Chan
 | --- | --- |
 | **General** | Repeat Submissions, Logged-in Users, Blocked IP Addresses, Blocked Keywords |
 | **Captcha** | Placeholder, nothing implemented yet |
-| **Domain Block** | Personal Email Domains |
+| **Domain Block** | Business-email switch, Apply To Forms, Personal Email Domains |
 
 All three tabs render inside a **single form**, and switching tabs only shows and hides them. That is deliberate: `options.php` writes `null` over any option registered in the group that is absent from the POST, so rendering only the active tab's fields would silently wipe the other tabs' settings on every save. One form, one submit, every option always posted.
 
@@ -41,6 +41,8 @@ All three tabs render inside a **single form**, and switching tabs only shows an
 - **Logged-in Users** — off by default. On, every rule below also applies to logged-in users, including administrators. Leave it off while you are testing forms from your own account.
 - **Blocked IP Addresses** — one per line or comma-separated. Entries that are not valid IPs are dropped on save and named in an admin notice.
 - **Blocked Keywords** — one per line or comma-separated. Case-insensitive, matched **anywhere** the keyword appears, including inside a longer word or an email address. `hello` blocks `hello123@gmail.com`, `nr.abchello@abc.com` and `abc@hello.com`. Punctuation works as written, so `.ru`, `$$$`, `bit.ly` and `c++` are all valid keywords.
+- **Ask for a business email address** — the master switch at the top of the Domain Block tab, on by default. Off, nothing on the tab is shown and the check never runs, whatever the two settings below hold.
+- **Apply To Forms** — a checkbox per **published** Contact Form 7 form. Tick the ones that should ask for a business email address. **Leave every box unchecked to apply the notice to all forms**, which is what sites that never open the setting already had. Ids that no longer resolve to a real form are dropped on save, so deleting a form cannot leave a stale entry behind.
 - **Personal Email Domains** — one per line or comma-separated, e.g. `gmail.com, yahoo.com, hotmail.com, outlook.com`. **Empty by default**, which turns the notice off entirely — no domain is treated as personal until you list it. Matching is case-insensitive and **exact**, so `gmail.com` does not cover `mail.gmail.com`. Entries are stored lowercased with any `@` prefix stripped (`@gmail.com` and `user@gmail.com` are both accepted and saved as `gmail.com`), and anything that is not a domain — a bare `gmail`, an IP address — is dropped on save and named in an admin notice.
 
 ### Behind a proxy or CDN
@@ -102,6 +104,8 @@ That rewrite leans on how CF7's own script is structured: it renders `invalid_fi
 | `wpcf7mailsent` event | `status` maps to `sent` | never fires, so no thank-you redirect |
 | `invalid_fields.forEach()` | unconditional | red tip, `wpcf7-not-valid` and `aria-invalid` on the email field |
 
+Which forms it runs on comes from **Apply To Forms**: the submitting form's id is compared against the saved list, and an empty list means every form. The gate is checked before any domain work, so unselected forms cost one `get_option` and nothing else.
+
 The domain is read from every form tag whose basetype is `email`, validated with `filter_var(..., FILTER_VALIDATE_EMAIL)` before the part after the last `@` is taken, then compared with both sides lowercased — so `user@gmail.com`, `USER@GMAIL.COM` and `user@Gmail.com` all match a `gmail.com` entry. The banner text comes from the form's own **Validation errors** message (Contact → your form → Messages), so it stays editable and translatable.
 
 A flagged submission is also **not recorded for repeat detection**: `remember_submission` skips the IP transient, and the cookie is never set because it is armed by `wpcf7mailsent`, which no longer fires. Correcting the address and submitting again therefore goes straight through instead of meeting the *Submit Again* modal.
@@ -112,7 +116,7 @@ The domain list never reaches the browser — nothing is localised to JavaScript
 
 ## Uninstalling
 
-Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way — the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all seven options and every repeat transient.
+Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way — the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all nine options and every repeat transient.
 
 The question is asked on deactivation rather than on delete because WordPress only offers the Delete link once a plugin is **deactivated** (`! is_plugin_active()` in `class-wp-plugins-list-table.php`), and a deactivated plugin loads no code — so no plugin can render a dialog on its own Delete click. Deactivation is the last moment this plugin's code still runs.
 
@@ -143,6 +147,8 @@ The modal is a native `<dialog>`, so Esc and the focus trap come free. It interc
 
 - **Personal Email Domains** setting — a list of free/personal email domains managed entirely from the admin, no code changes needed. Empty by default, so nothing changes on upgrade until it is filled in. Invalid entries are dropped on save and named in an admin notice, and an `@` prefix or a whole pasted address is accepted and stored as just the domain.
 - A submission whose email address uses a listed domain is **still processed and delivered** to the configured business address. The visitor sees *"Please enter your business email address."* under the email field in CF7's normal error styling, keeps everything they typed, and gets no thank-you message and no redirect. Nothing is ever rejected.
+- **Apply To Forms** — pick which published CF7 forms the notice runs on, from a checkbox list on the same tab. Unchecked means all forms, so the default matches how it behaved before the setting existed.
+- A master switch on the tab turns the whole thing off in one click, hiding its settings and skipping the check entirely.
 - Matching is case-insensitive and exact, runs server-side only, and validates the address with `filter_var(..., FILTER_VALIDATE_EMAIL)` before the domain is extracted. The list is never exposed to the front end — no domain is localised to JavaScript.
 - A flagged submission is not recorded for repeat detection, so correcting the address and submitting again goes straight through instead of meeting the *Submit Again* modal.
 - The notice is exempt from the **Logged-in Users** toggle, which gates the three blocking rules only. It rejects nothing, so it applies to everyone.

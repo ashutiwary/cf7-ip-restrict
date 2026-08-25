@@ -17,6 +17,8 @@ function cf7_ip_restrict_delete_site_data()
         'cf7_ip_restrict_blocked_ips',
         'cf7_ip_restrict_blocked_keywords',
         'cf7_ip_restrict_personal_domains',
+        'cf7_ip_restrict_domain_forms',
+        'cf7_ip_restrict_domain_enabled',
         'cf7_ip_restrict_apply_to_logged_in',
         'cf7_ip_restrict_repeat_enabled',
         'cf7_ip_restrict_repeat_duration',
