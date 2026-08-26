@@ -130,7 +130,9 @@ class CF7_IP_Restrict_Admin
     public function register_settings()
     {
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_ips', array('sanitize_callback' => array($this, 'sanitize_ips')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_ip_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_blocked_keywords', array('sanitize_callback' => array($this, 'sanitize_keywords')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_keyword_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_personal_domains', array('sanitize_callback' => array($this, 'sanitize_domains')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_forms', array('sanitize_callback' => array($this, 'sanitize_forms')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
@@ -334,17 +336,19 @@ class CF7_IP_Restrict_Admin
     // Renders the settings field for blocked IP addresses
     public function blocked_ips_field_callback()
     {
-        $ips = get_option('cf7_ip_restrict_blocked_ips');
-        echo '<textarea name="cf7_ip_restrict_blocked_ips" rows="5" placeholder="Enter IP addresses...">' . esc_textarea($ips) . '</textarea>';
-        echo '<p class="description">Enter IP addresses to block, one per line or separated by commas (e.g., 192.168.1.1, 10.0.0.2). Anyone submitting a form from a listed address is refused.</p>';
+        $hidden = get_option('cf7_ip_restrict_ip_enabled', '1') ? '' : ' hidden';
+        $this->switch_field('cf7_ip_restrict_ip_enabled', 'Refuse submissions from listed IP addresses', '1', '.cf7-ip-restrict-when-ip');
+        echo '<textarea name="cf7_ip_restrict_blocked_ips" rows="5" placeholder="Enter IP addresses..." class="cf7-ip-restrict-when-ip"' . $hidden . '>' . esc_textarea(get_option('cf7_ip_restrict_blocked_ips')) . '</textarea>';
+        echo '<p class="description cf7-ip-restrict-when-ip"' . $hidden . '>One per line or separated by commas (e.g., 192.168.1.1, 10.0.0.2). Anyone submitting a form from a listed address is refused.</p>';
     }
 
     // Renders the settings field for blocked keywords
     public function blocked_keywords_field_callback()
     {
-        $keywords = get_option('cf7_ip_restrict_blocked_keywords');
-        echo '<textarea name="cf7_ip_restrict_blocked_keywords" rows="5" placeholder="Enter keywords...">' . esc_textarea($keywords) . '</textarea>';
-        echo '<p class="description">Enter keywords to block, one per line or separated by commas. Case-insensitive, and matched anywhere they appear including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
+        $hidden = get_option('cf7_ip_restrict_keyword_enabled', '1') ? '' : ' hidden';
+        $this->switch_field('cf7_ip_restrict_keyword_enabled', 'Refuse submissions containing listed keywords', '1', '.cf7-ip-restrict-when-keyword');
+        echo '<textarea name="cf7_ip_restrict_blocked_keywords" rows="5" placeholder="Enter keywords..." class="cf7-ip-restrict-when-keyword"' . $hidden . '>' . esc_textarea(get_option('cf7_ip_restrict_blocked_keywords')) . '</textarea>';
+        echo '<p class="description cf7-ip-restrict-when-keyword"' . $hidden . '>One per line or separated by commas. Case-insensitive, and matched anywhere they appear including inside a longer word or an email address, so <code>hello</code> also blocks <code>hello123@gmail.com</code> and <code>nr.abchello@abc.com</code>.</p>';
     }
 
     // Lists the published CF7 forms the business-email notice can apply to.

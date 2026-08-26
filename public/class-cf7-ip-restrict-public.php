@@ -230,11 +230,13 @@ class CF7_IP_Restrict_Public
         $user_ip = CF7_IP_Restrict::client_ip();
 
         // Refuse the submission if the visitor's address is on the blocklist.
-        $visitor = $this->ip_key($user_ip);
-        if ($visitor !== '') {
-            foreach (CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_ips')) as $blocked) {
-                if ($this->ip_key($blocked) === $visitor) {
-                    return $this->block($result, $tags, 'ip', "Submission is Blocked");
+        if (get_option('cf7_ip_restrict_ip_enabled', '1')) {
+            $visitor = $this->ip_key($user_ip);
+            if ($visitor !== '') {
+                foreach (CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_ips')) as $blocked) {
+                    if ($this->ip_key($blocked) === $visitor) {
+                        return $this->block($result, $tags, 'ip', "Submission is Blocked");
+                    }
                 }
             }
         }
@@ -244,18 +246,20 @@ class CF7_IP_Restrict_Public
             return $result;
         }
 
-        // Every field is searched, not just the message: name, email, subject,
-        // dropdowns, checkboxes, anything the visitor filled in.
-        $haystack = implode("\n", $this->posted_strings($submission->get_posted_data()));
+        if (get_option('cf7_ip_restrict_keyword_enabled', '1')) {
+            // Every field is searched, not just the message: name, email,
+            // subject, dropdowns, anything the visitor filled in.
+            $haystack = implode("\n", $this->posted_strings($submission->get_posted_data()));
 
-        // Substring match: "hello" blocks hello123@gmail.com, abchello@abc.com
-        // and abc@hello.com alike. stripos covers the ASCII case and cannot be
-        // defeated by malformed UTF-8; the regex adds multibyte case folding.
-        // to_list() guarantees no keyword is empty, which would match anything.
-        foreach (CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_keywords')) as $keyword) {
-            if (stripos($haystack, $keyword) !== false
-                || preg_match('/' . preg_quote($keyword, '/') . '/iu', $haystack)) {
-                return $this->block($result, $tags, 'keyword', "Your submission contains inapropriate words");
+            // Substring match: "hello" blocks hello123@gmail.com, abchello@abc.com
+            // and abc@hello.com alike. stripos covers the ASCII case and cannot be
+            // defeated by malformed UTF-8; the regex adds multibyte case folding.
+            // to_list() guarantees no keyword is empty, which would match anything.
+            foreach (CF7_IP_Restrict::to_list(get_option('cf7_ip_restrict_blocked_keywords')) as $keyword) {
+                if (stripos($haystack, $keyword) !== false
+                    || preg_match('/' . preg_quote($keyword, '/') . '/iu', $haystack)) {
+                    return $this->block($result, $tags, 'keyword', "Your submission contains inapropriate words");
+                }
             }
         }
 

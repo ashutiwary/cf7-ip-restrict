@@ -15,7 +15,9 @@ function cf7_ip_restrict_delete_site_data()
 
     $options = array(
         'cf7_ip_restrict_blocked_ips',
+        'cf7_ip_restrict_ip_enabled',
         'cf7_ip_restrict_blocked_keywords',
+        'cf7_ip_restrict_keyword_enabled',
         'cf7_ip_restrict_personal_domains',
         'cf7_ip_restrict_domain_forms',
         'cf7_ip_restrict_domain_enabled',
