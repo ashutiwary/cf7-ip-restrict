@@ -3,6 +3,8 @@
 class CF7_IP_Restrict_Public
 {
     const CONFIRM_FIELD = 'cf7-ip-restrict-confirm';
+    const CAPTCHA_FIELD = 'cf7-ip-restrict-captcha';
+    const VERIFY_URL = 'https://www.google.com/recaptcha/api/siteverify';
     const CLEANUP_HOOK = 'cf7_ip_restrict_cleanup_repeat';
     const BUSINESS_EMAIL_MESSAGE = 'Please enter your business email address.';
 
@@ -29,7 +31,50 @@ class CF7_IP_Restrict_Public
         wp_localize_script('cf7-ip-restrict-public-script', 'cf7IpRestrict', array(
             'repeatEnabled' => get_option('cf7_ip_restrict_repeat_enabled', '1') ? 1 : 0,
             'repeatMaxAge'  => $this->repeat_max_age(),
+            // Only the public half of the pair ever reaches the browser.
+            'captchaKey'    => $this->captcha_active() ? get_option('cf7_ip_restrict_captcha_site_key') : '',
         ));
+
+        if ($this->captcha_active()) {
+            wp_enqueue_script('cf7-ip-restrict-recaptcha', 'https://www.google.com/recaptcha/api.js?render=explicit', array(), null, true);
+        }
+    }
+
+    // A captcha only exists once it is switched on and both keys are saved.
+    private function captcha_active()
+    {
+        return get_option('cf7_ip_restrict_captcha_enabled')
+            && get_option('cf7_ip_restrict_repeat_enabled', '1')
+            && get_option('cf7_ip_restrict_captcha_site_key')
+            && get_option('cf7_ip_restrict_captcha_secret_key');
+    }
+
+    // Fails closed: an unreachable Google, a missing token or a rejected one all
+    // mean the resubmission does not go through.
+    private function captcha_passed()
+    {
+        $token = isset($_POST[self::CAPTCHA_FIELD]) ? sanitize_text_field(wp_unslash($_POST[self::CAPTCHA_FIELD])) : '';
+
+        if ($token === '') {
+            return false;
+        }
+
+        $response = wp_remote_post(self::VERIFY_URL, array(
+            'timeout' => 10,
+            'body'    => array(
+                'secret'   => get_option('cf7_ip_restrict_captcha_secret_key'),
+                'response' => $token,
+                'remoteip' => CF7_IP_Restrict::client_ip(),
+            ),
+        ));
+
+        if (is_wp_error($response)) {
+            return false;
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        return !empty($body['success']);
     }
 
     // Cookie lifetime in seconds. 0 means it lasts until the browser is closed.
@@ -214,10 +259,19 @@ class CF7_IP_Restrict_Public
             }
         }
 
-        if (get_option('cf7_ip_restrict_repeat_enabled', '1') && empty($_POST[self::CONFIRM_FIELD])) {
+        if (get_option('cf7_ip_restrict_repeat_enabled', '1')) {
             $key = $this->repeat_transient_key($user_ip);
+
             if ($key !== '' && get_transient($key)) {
-                return $this->block($result, $tags, 'repeat', "You already submitted this form recently.");
+                if (empty($_POST[self::CONFIRM_FIELD])) {
+                    return $this->block($result, $tags, 'repeat', "You already submitted this form recently.");
+                }
+
+                // Confirmed, but the captcha is what makes that confirmation
+                // worth anything: the field on its own is trivial to forge.
+                if ($this->captcha_active() && !$this->captcha_passed()) {
+                    return $this->block($result, $tags, 'captcha', "Captcha check failed. Please try again.");
+                }
             }
         }
 
@@ -251,6 +305,9 @@ class CF7_IP_Restrict_Public
                 <div class="cf-modal-body">
                     You Already Submitted Form. Do you want to Submit Again?
                 </div>
+                <?php if ($this->captcha_active()) : ?>
+                    <div class="cf-modal-captcha" id="cf-captcha-box"></div>
+                <?php endif; ?>
                 <div class="cf-modal-footer">
                     <button type="button" class="btn cf-btn-secondary cf-unblock">Submit Again</button>
                     <button type="button" class="btn cf-btn-primary cf-close-custom">Close</button>

@@ -262,7 +262,8 @@
 }
 
 .cf7-ip-restrict-card textarea,
-.cf7-ip-restrict-card input[type="text"] {
+.cf7-ip-restrict-card input[type="text"],
+.cf7-ip-restrict-card input[type="password"] {
     width: 100%;
     padding: 12px 14px;
     border: 1px solid var(--cf7ipr-border);
@@ -282,7 +283,8 @@
 }
 
 .cf7-ip-restrict-card textarea:focus,
-.cf7-ip-restrict-card input[type="text"]:focus {
+.cf7-ip-restrict-card input[type="text"]:focus,
+.cf7-ip-restrict-card input[type="password"]:focus {
     border-color: var(--cf7ipr-brand);
     box-shadow: 0 0 0 1px var(--cf7ipr-brand);
     outline: 2px solid transparent;

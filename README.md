@@ -32,7 +32,7 @@ The page has its own layout - a left nav, a sticky header with one **Save Change
 | Tab | Contains |
 | --- | --- |
 | **General** | Repeat Submissions, Logged-in Users, Blocked IP Addresses, Blocked Keywords |
-| **Captcha** | Placeholder, nothing implemented yet |
+| **Captcha** | reCAPTCHA switch, Site Key, Secret Key |
 | **Domain Block** | Business-email switch, Apply To Forms, Personal Email Domains, Error Message |
 
 All three tabs render inside a **single form**, and switching tabs only shows and hides them. That is deliberate: `options.php` writes `null` over any option registered in the group that is absent from the POST, so rendering only the active tab's fields would silently wipe the other tabs' settings on every save. One form, one submit, every option always posted.
@@ -45,6 +45,8 @@ All three tabs render inside a **single form**, and switching tabs only shows an
 - **Apply To Forms** - a checkbox per **published** Contact Form 7 form. Tick the ones that should ask for a business email address. **Opt-in per form: with nothing ticked the notice never fires**, however the other settings are filled in. Ids that no longer resolve to a real form are dropped on save, so deleting a form cannot leave a stale entry behind.
 - **Personal Email Domains** - one per line or comma-separated, e.g. `gmail.com, yahoo.com, hotmail.com, outlook.com`. **Empty by default**, which turns the notice off entirely - no domain is treated as personal until you list it. Matching is case-insensitive and **exact**, so `gmail.com` does not cover `mail.gmail.com`. Entries are stored lowercased with any `@` prefix stripped (`@gmail.com` and `user@gmail.com` are both accepted and saved as `gmail.com`), and anything that is not a domain - a bare `gmail`, an IP address - is dropped on save and named in an admin notice.
 
+- **Require a captcha before a repeat submission** - off by default. On, a Google reCAPTCHA v2 tickbox appears inside the *Submit Again* prompt and that button stays disabled until it is solved. Needs **Repeat Submissions** on and both keys filled in; with any of those missing nothing is loaded and the prompt behaves exactly as before.
+- **Site Key** / **Secret Key** - from [google.com/recaptcha/admin](https://www.google.com/recaptcha/admin), type **reCAPTCHA v2, "I'm not a robot" tickbox**. The site key is sent to the browser because it has to be; the secret key never leaves the server.
 - **Error Message** - the text shown under the email field. Leave it empty for the default, *"Please enter your business email address."* Plain text only; it is rendered with `textContent` on the front end, so markup is not interpreted.
 
 ### Behind a proxy or CDN
@@ -118,7 +120,7 @@ The domain list never reaches the browser - nothing is localised to JavaScript, 
 
 ## Uninstalling
 
-Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way - the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all ten options and every repeat transient.
+Clicking **Deactivate** on the Plugins row opens a consent modal: one checkbox, *Delete my data when I delete this plugin*. Deactivating itself removes nothing either way - the answer is stored and `uninstall.php` reads it whenever the deletion actually happens. Unchecked (the default) keeps everything, so a reinstall picks up where it left off. Checked, deleting the plugin removes all thirteen options and every repeat transient.
 
 The question is asked on deactivation rather than on delete because WordPress only offers the Delete link once a plugin is **deactivated** (`! is_plugin_active()` in `class-wp-plugins-list-table.php`), and a deactivated plugin loads no code - so no plugin can render a dialog on its own Delete click. Deactivation is the last moment this plugin's code still runs.
 
@@ -126,7 +128,8 @@ The modal is a native `<dialog>`, so Esc and the focus trap come free. It interc
 
 ## Known limitations
 
-- **Repeat submission is a courtesy, not enforcement.** Both the cookie and the IP record are checked before the mail sends, but *Submit Again* always lets the visitor through, and its confirm field is just a hidden form value - nothing stops a script from sending it on every request. This is inherent to a dismissible prompt: it can inconvenience a bot, not stop one. Use a CAPTCHA if spam is the actual problem.
+- **Repeat submission is a courtesy, not enforcement - unless the captcha is on.** Both the cookie and the IP record are checked before the mail sends, but *Submit Again* always lets the visitor through, and its confirm field is just a hidden form value: nothing stops a script from sending it on every request. Turning on the Captcha tab is what closes that hole, because the resubmission then also has to carry a token Google will vouch for.
+- **The captcha check fails closed.** A missing token, a rejected one, or an unreachable Google all block the resubmission. That is the right call for a spam guard, but it does mean a Google outage or a browser extension blocking `recaptcha.js` leaves the visitor unable to resubmit. The captcha is off by default for that reason.
 - **The modal wording lives in the JavaScript** and is not translatable as written. The server-side message strings are now internal only - the front end keys off `ip` / `keyword` / `repeat` - so rewording either side is safe.
 - **A block hides other validation errors on the same submission.** If a visitor is IP-blocked and also left a required field empty, only the modal shows. They are blocked regardless, so the empty field is moot.
 - **A blocked IP still needs to be the address the server sees.** On a local install every request arrives from `127.0.0.1` or `::1`, so a public IP looked up externally will never match. Behind a proxy or CDN, see the opt-in constant above.

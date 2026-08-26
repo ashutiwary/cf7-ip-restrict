@@ -135,6 +135,9 @@ class CF7_IP_Restrict_Admin
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_forms', array('sanitize_callback' => array($this, 'sanitize_forms')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_domain_message', array('sanitize_callback' => 'sanitize_text_field'));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_captcha_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_captcha_site_key', array('sanitize_callback' => 'sanitize_text_field'));
+        register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_captcha_secret_key', array('sanitize_callback' => 'sanitize_text_field'));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_apply_to_logged_in', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_enabled', array('sanitize_callback' => array($this, 'sanitize_toggle')));
         register_setting('cf7_ip_restrict_settings', 'cf7_ip_restrict_repeat_duration', array('sanitize_callback' => array($this, 'sanitize_duration')));
@@ -191,6 +194,7 @@ class CF7_IP_Restrict_Admin
     public function display_settings_page()
     {
         $domains_on = get_option('cf7_ip_restrict_domain_enabled', '1') ? '' : ' hidden';
+        $captcha_on = get_option('cf7_ip_restrict_captcha_enabled') ? '' : ' hidden';
         $tabs = array(
             'general' => array('General', 'dashicons-admin-generic'),
             'captcha' => array('Captcha', 'dashicons-shield'),
@@ -240,11 +244,17 @@ class CF7_IP_Restrict_Admin
                             </section>
 
                             <section class="cf7-ip-restrict-panel" data-panel="captcha" hidden>
-                                <div class="cf7-ip-restrict-grid">
-                                    <div class="cf7-ip-restrict-card">
-                                        <h2>Captcha</h2>
-                                        <p class="description">Not built yet.</p>
-                                    </div>
+                                <div class="cf7-ip-restrict-panel-head">
+                                    <?php $this->switch_field('cf7_ip_restrict_captcha_enabled', 'Require a captcha before a repeat submission', '', '.cf7-ip-restrict-when-captcha'); ?>
+                                </div>
+                                <p class="cf7-ip-restrict-intro cf7-ip-restrict-when-captcha"<?php echo $captcha_on; ?>>
+                                    Puts a Google reCAPTCHA v2 checkbox in the <strong>Submit Again</strong> prompt, and keeps that button unclickable until it is solved. The answer is checked with Google on the server, so the prompt stops being a hidden field anyone could forge. Needs <em>Repeat Submissions</em> on the General tab to be on, and both keys below filled in. Create a pair at <a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">google.com/recaptcha/admin</a>, choosing <strong>reCAPTCHA v2, "I'm not a robot" tickbox</strong>.
+                                </p>
+                                <div class="cf7-ip-restrict-grid cf7-ip-restrict-when-captcha"<?php echo $captcha_on; ?>>
+                                    <?php
+                                    $this->card('Site Key', 'captcha_site_key_field_callback');
+                                    $this->card('Secret Key', 'captcha_secret_key_field_callback');
+                                    ?>
                                 </div>
                             </section>
 
@@ -359,6 +369,20 @@ class CF7_IP_Restrict_Admin
         }
         echo '</ul>';
         echo '<p class="description">Tick the forms that should ask for a business email address. <strong>Nothing happens until at least one form is ticked.</strong></p>';
+    }
+
+    // Public half of the key pair, so it is rendered as plain text.
+    public function captcha_site_key_field_callback()
+    {
+        echo '<input type="text" name="cf7_ip_restrict_captcha_site_key" value="' . esc_attr(get_option('cf7_ip_restrict_captcha_site_key')) . '" placeholder="6L..." autocomplete="off" spellcheck="false">';
+        echo '<p class="description">Sent to the browser to draw the tickbox, so it is public by design.</p>';
+    }
+
+    // Never leaves the server, so it is masked and never sent to the front end.
+    public function captcha_secret_key_field_callback()
+    {
+        echo '<input type="password" name="cf7_ip_restrict_captcha_secret_key" value="' . esc_attr(get_option('cf7_ip_restrict_captcha_secret_key')) . '" placeholder="6L..." autocomplete="new-password" spellcheck="false">';
+        echo '<p class="description">Used only for the server-to-server check with Google. Keep it private.</p>';
     }
 
     // Renders the settings field for the message shown under the email field.

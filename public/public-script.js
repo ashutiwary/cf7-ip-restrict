@@ -6,18 +6,60 @@ document.addEventListener("DOMContentLoaded", function () {
   var MAX_AGE_SECONDS = parseInt(settings.repeatMaxAge, 10) || 0;
 
   var CONFIRM_FIELD = "cf7-ip-restrict-confirm";
+  var CAPTCHA_FIELD = "cf7-ip-restrict-captcha";
+  var CAPTCHA_KEY = settings.captchaKey || "";
   var REPEAT_TEXT = "You Already Submitted Form. Do you want to Submit Again?";
   var MESSAGES = {
     ip: "We're unable to accept your submission at this time. Please contact us directly if you need assistance.",
     keyword: "Your submission contains inapropriate words",
     repeat: REPEAT_TEXT,
+    captcha: "Captcha check failed. Please tick the box and try again.",
   };
-  var SHOWS_SUBMIT_AGAIN = { repeat: true };
+  var SHOWS_SUBMIT_AGAIN = { repeat: true, captcha: true };
 
   var modal = document.getElementById("cfcustomErrorModal");
   var submitAgainButton = modal && modal.querySelector(".cf-unblock");
   if (!modal || !submitAgainButton) {
     return;
+  }
+
+  var captchaBox = document.getElementById("cf-captcha-box");
+  var widgetId = null;
+
+  // Rendered on first open rather than up front: reCAPTCHA measures its
+  // container, and the modal is display:none until the visitor needs it.
+  // ponytail: polls for the API instead of using its onload callback, which
+  // would need our globals defined before Google's script runs. Give up after
+  // 5s, leaving the button disabled, which is what the server would enforce.
+  function renderCaptcha(tries) {
+    if (widgetId !== null || !captchaBox || !CAPTCHA_KEY) {
+      return;
+    }
+    if (!window.grecaptcha || !grecaptcha.render) {
+      if (tries < 25) {
+        setTimeout(function () {
+          renderCaptcha(tries + 1);
+        }, 200);
+      }
+      return;
+    }
+
+    widgetId = grecaptcha.render(captchaBox, {
+      sitekey: CAPTCHA_KEY,
+      callback: function () {
+        submitAgainButton.disabled = false;
+      },
+      "expired-callback": function () {
+        submitAgainButton.disabled = true;
+      },
+      "error-callback": function () {
+        submitAgainButton.disabled = true;
+      },
+    });
+  }
+
+  function captchaRequired() {
+    return !!(CAPTCHA_KEY && captchaBox);
   }
 
   // The form waiting on the visitor's answer.
@@ -47,6 +89,22 @@ document.addEventListener("DOMContentLoaded", function () {
   function openModal(text, showSubmitAgain) {
     modal.querySelector(".cf-modal-body").innerText = text;
     submitAgainButton.style.display = showSubmitAgain ? "" : "none";
+
+    // The button stays visible either way, it just cannot be pressed until the
+    // tickbox is solved. A stale token from a previous open is cleared first.
+    if (showSubmitAgain && captchaRequired()) {
+      captchaBox.hidden = false;
+      submitAgainButton.disabled = true;
+      if (widgetId === null) {
+        renderCaptcha(0);
+      } else {
+        grecaptcha.reset(widgetId);
+      }
+    } else if (captchaBox) {
+      captchaBox.hidden = true;
+      submitAgainButton.disabled = false;
+    }
+
     modal.style.display = "block";
   }
 
@@ -88,6 +146,14 @@ document.addEventListener("DOMContentLoaded", function () {
   // Submit Again: hand the same form back to CF7 to submit normally.
   submitAgainButton.addEventListener("click", function () {
     var form = pendingForm;
+
+    // The widget lives in the footer modal, outside the form, so its token has
+    // to be carried over by hand rather than posted with the rest of the fields.
+    var token = captchaRequired() && widgetId !== null ? grecaptcha.getResponse(widgetId) : "";
+    if (captchaRequired() && !token) {
+      return;
+    }
+
     closeModal();
     if (!form) {
       return;
@@ -95,19 +161,31 @@ document.addEventListener("DOMContentLoaded", function () {
 
     clearSubmitted();
 
-    var confirmField = document.createElement("input");
-    confirmField.type = "hidden";
-    confirmField.name = CONFIRM_FIELD;
-    confirmField.value = "1";
-    form.appendChild(confirmField);
+    var extra = [makeField(CONFIRM_FIELD, "1")];
+    if (token) {
+      extra.push(makeField(CAPTCHA_FIELD, token));
+    }
+    extra.forEach(function (field) {
+      form.appendChild(field);
+    });
 
     if (window.wpcf7 && wpcf7.submit) {
       wpcf7.submit(form);
     } else {
       form.submit();
     }
-    confirmField.remove();
+    extra.forEach(function (field) {
+      field.remove();
+    });
   });
+
+  function makeField(name, value) {
+    var field = document.createElement("input");
+    field.type = "hidden";
+    field.name = name;
+    field.value = value;
+    return field;
+  }
 
   function showBlock(event) {
     var reason = (event.detail.apiResponse || {}).cf7_ip_restrict;

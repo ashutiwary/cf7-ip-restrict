@@ -77,6 +77,26 @@
   background-color: #0c18d4;
   color: #ffffff;
 }
+/* Captcha inside the repeat prompt */
+.cf-modal-captcha {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
+}
+
+.cf-modal-captcha[hidden] {
+  display: none;
+}
+
+/* Still visible and still laid out, just not pressable until the box is ticked. */
+.cf-btn-secondary:disabled,
+.cf-btn-secondary:disabled:hover {
+  background-color: transparent;
+  color: #0129ac;
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* The Close Button */
 .close-arrow {
   color: red;
